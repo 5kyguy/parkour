@@ -9,3 +9,28 @@ if (!appRoot) {
 
 const game = new GameApp(appRoot)
 game.start()
+
+const homepage = document.createElement('section')
+homepage.className = 'homepage-overlay'
+homepage.innerHTML = [
+  '<div class="homepage-panel">',
+  '<p class="homepage-kicker">Parkour Vibe Jam 2026</p>',
+  '<h1>Michael in Florence</h1>',
+  '<p class="homepage-subtitle">An accidental office manager. A city of rooftops. A very confident lack of training.</p>',
+  '<p class="homepage-copy">One moment Michael Scott was in a Dunder Mifflin conference room. The next, he woke up in 15th-century Florence wearing his polo, badge, and an unshakable belief that he was born to free-run.</p>',
+  '<button type="button" class="homepage-play">Play</button>',
+  '<p class="homepage-controls">WASD / Arrows: Move · Space: Jump · Shift: Sprint · R: Respawn</p>',
+  '</div>',
+].join('')
+appRoot.appendChild(homepage)
+
+const playButton = homepage.querySelector<HTMLButtonElement>('.homepage-play')
+if (!playButton) {
+  throw new Error('Could not find homepage play button.')
+}
+
+playButton.addEventListener('click', async () => {
+  playButton.disabled = true
+  await game.startPlaying()
+  homepage.remove()
+})

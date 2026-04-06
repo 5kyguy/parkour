@@ -7,6 +7,8 @@ import { PlayerController } from './player/playerController'
 import type { GameSnapshot } from './types'
 import { WorldBuilder } from './world/worldBuilder'
 
+type GamePhase = 'intro' | 'playing'
+
 export class GameApp {
   private readonly host: HTMLDivElement
   private readonly scene = new Scene()
@@ -22,6 +24,7 @@ export class GameApp {
   private framesInSecond = 0
   private fps = 0
   private fpsStartedAt = 0
+  private phase: GamePhase = 'intro'
 
   constructor(host: HTMLDivElement) {
     this.host = host
@@ -37,6 +40,7 @@ export class GameApp {
     this.camera = new FollowCamera(host.clientWidth / host.clientHeight)
     this.player = new PlayerController(this.scene, this.worldBuilder.spawnPoint)
     this.debugHud = new DebugHud(this.host)
+    this.input.setEnabled(false)
   }
 
   public start(): void {
@@ -48,6 +52,15 @@ export class GameApp {
     requestAnimationFrame(this.tick)
   }
 
+  public async startPlaying(): Promise<void> {
+    if (this.phase === 'playing') {
+      return
+    }
+    this.phase = 'playing'
+    this.input.setEnabled(true)
+    await this.requestPointerLock()
+  }
+
   private tick = (): void => {
     const deltaTime = Math.min(this.clock.getDelta(), 1 / 30)
     const now = performance.now() / 1000
@@ -55,8 +68,8 @@ export class GameApp {
 
     this.desiredMove
       .set(0, 0, 0)
-      .addScaledVector(basis.right, this.input.moveX)
-      .addScaledVector(basis.forward, this.input.moveZ)
+      .addScaledVector(basis.right, this.phase === 'playing' ? this.input.moveX : 0)
+      .addScaledVector(basis.forward, this.phase === 'playing' ? this.input.moveZ : 0)
 
     if (this.desiredMove.lengthSq() > 1) {
       this.desiredMove.normalize()
@@ -67,8 +80,8 @@ export class GameApp {
       now,
       moveX: this.desiredMove.x,
       moveZ: this.desiredMove.z,
-      sprinting: this.input.sprinting,
-      wantsJump: this.input.consumeJumpRequest(now, PHYSICS.JUMP_BUFFER),
+      sprinting: this.phase === 'playing' ? this.input.sprinting : false,
+      wantsJump: this.phase === 'playing' ? this.input.consumeJumpRequest(now, PHYSICS.JUMP_BUFFER) : false,
     })
 
     const playerSnapshot = this.player.getSnapshot()
@@ -108,13 +121,27 @@ export class GameApp {
   }
 
   private handleCanvasClick = async (): Promise<void> => {
+    if (this.phase !== 'playing') {
+      return
+    }
+    await this.requestPointerLock()
+  }
+
+  private requestPointerLock = async (): Promise<void> => {
     if (document.pointerLockElement === this.renderer.domElement) {
       return
     }
-    await this.renderer.domElement.requestPointerLock()
+    try {
+      await this.renderer.domElement.requestPointerLock()
+    } catch {
+      // Some browsers may reject on first attempt; canvas click remains a fallback.
+    }
   }
 
   private handleMouseMove = (event: MouseEvent): void => {
+    if (this.phase !== 'playing') {
+      return
+    }
     if (document.pointerLockElement !== this.renderer.domElement) {
       return
     }

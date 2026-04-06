@@ -22,7 +22,7 @@ export class DebugHud {
       `<div><span>Altitude</span><strong>${altitude}</strong></div>`,
       `<div><span>Pos</span><strong>x:${player.position.x.toFixed(1)} y:${player.position.y.toFixed(1)} z:${player.position.z.toFixed(1)}</strong></div>`,
       `<div><span>Vel</span><strong>x:${player.velocity.x.toFixed(1)} y:${player.velocity.y.toFixed(1)} z:${player.velocity.z.toFixed(1)}</strong></div>`,
-      '<p>Click game to lock mouse. Move mouse to look, WASD/Arrows to move, Shift sprint, Space jump.</p>',
+      '<p>Click Play to begin. During gameplay: click game to lock mouse, move mouse to look, WASD/Arrows to move, Shift sprint, Space jump.</p>',
     ].join('')
   }
 }
