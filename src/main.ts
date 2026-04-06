@@ -1,8 +1,11 @@
 import './styles/main.css'
+import { GameApp } from './game/gameApp'
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <main>
-    <h1>Parkour</h1>
-    <p>Project scaffold is ready. Start building the movement prototype in <code>src/game</code>.</p>
-  </main>
-`
+const appRoot = document.querySelector<HTMLDivElement>('#app')
+
+if (!appRoot) {
+  throw new Error('Could not find #app root element.')
+}
+
+const game = new GameApp(appRoot)
+game.start()
