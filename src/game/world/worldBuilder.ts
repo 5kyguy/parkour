@@ -28,6 +28,7 @@ import type {
   WorldSpawnPoint,
   WorldSurface,
 } from './worldTypes'
+import type { WorldTraversalData } from './traversalQueries'
 
 const GROUND_OVERLAY_THICKNESS = 0.08
 const ROOF_THICKNESS = 0.4
@@ -122,6 +123,14 @@ export class WorldBuilder {
     const nearestSpawn = this.getNearestSpawnPoint(position)
     this.activeSpawnPoint = nearestSpawn
     return this.toVector3(nearestSpawn.position)
+  }
+
+  /** Surfaces + module metadata for movement queries (vault, climb, wall-run, leap). */
+  public getWorldTraversalData(): WorldTraversalData {
+    return {
+      surfaces: this.surfaces,
+      modules: this.moduleRuntime,
+    }
   }
 
   /**

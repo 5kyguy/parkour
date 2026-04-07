@@ -81,14 +81,22 @@ export class GameApp {
         ? this.worldBuilder.getRespawnPoint(this.player.getPosition())
         : null
 
+    const jumpBufferAge =
+      this.phase === 'playing' ? this.input.peekJumpBufferAge(now, PHYSICS.JUMP_BUFFER) : null
+    const wantsJump =
+      this.phase === 'playing' ? this.input.consumeJumpRequest(now, PHYSICS.JUMP_BUFFER) : false
+
     this.player.update({
       deltaTime,
       now,
       moveX: this.desiredMove.x,
       moveZ: this.desiredMove.z,
       sprinting: this.phase === 'playing' ? this.input.sprinting : false,
-      wantsJump: this.phase === 'playing' ? this.input.consumeJumpRequest(now, PHYSICS.JUMP_BUFFER) : false,
+      wantsJump,
+      wantsDown: this.phase === 'playing' ? this.input.wantsDown : false,
+      jumpBufferAge,
       respawnTarget,
+      traversal: this.worldBuilder.getWorldTraversalData(),
       resolveSurface: (position, footY) => this.worldBuilder.getSurfaceBelow(position, footY),
       resolveCollision: (position, velocity) => this.worldBuilder.resolvePlayerCollision(position, velocity),
     })

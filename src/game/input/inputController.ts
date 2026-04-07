@@ -26,6 +26,15 @@ export class InputController {
     return this.isDown('ShiftLeft') || this.isDown('ShiftRight')
   }
 
+  /** Age of a pending jump in seconds, or null if none within buffer window. */
+  public peekJumpBufferAge(now: number, jumpBuffer: number): number | null {
+    if (!this.enabled || this.jumpRequestedAt < 0) {
+      return null
+    }
+    const age = now - this.jumpRequestedAt
+    return age <= jumpBuffer ? age : null
+  }
+
   public consumeJumpRequest(now: number, jumpBuffer: number): boolean {
     if (!this.enabled) {
       return false
@@ -38,6 +47,11 @@ export class InputController {
       this.jumpRequestedAt = -1
     }
     return fresh
+  }
+
+  /** Down (S / ArrowDown) — slide on ground, queue roll when airborne. */
+  public get wantsDown(): boolean {
+    return this.isDown('KeyS') || this.isDown('ArrowDown')
   }
 
   public consumeRespawnRequest(): boolean {
