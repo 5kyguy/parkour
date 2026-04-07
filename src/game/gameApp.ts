@@ -1,6 +1,6 @@
 import { Clock, Scene, Vector3, WebGLRenderer } from 'three'
 import { FollowCamera } from './camera/followCamera'
-import { PHYSICS } from './constants'
+import { PHYSICS, PLAYER } from './constants'
 import { DebugHud } from './debug/debugHud'
 import { InputController } from './input/inputController'
 import { PlayerController } from './player/playerController'
@@ -37,8 +37,9 @@ export class GameApp {
     this.host.appendChild(this.renderer.domElement)
 
     this.worldBuilder.build(this.scene)
+    const initialSpawnPoint = this.worldBuilder.getInitialSpawnPoint()
     this.camera = new FollowCamera(host.clientWidth / host.clientHeight)
-    this.player = new PlayerController(this.scene, this.worldBuilder.spawnPoint)
+    this.player = new PlayerController(this.scene, initialSpawnPoint)
     this.debugHud = new DebugHud(this.host)
     this.input.setEnabled(false)
   }
@@ -75,6 +76,11 @@ export class GameApp {
       this.desiredMove.normalize()
     }
 
+    const respawnTarget =
+      this.phase === 'playing' && this.input.consumeRespawnRequest()
+        ? this.worldBuilder.getRespawnPoint(this.player.getPosition())
+        : null
+
     this.player.update({
       deltaTime,
       now,
@@ -82,6 +88,9 @@ export class GameApp {
       moveZ: this.desiredMove.z,
       sprinting: this.phase === 'playing' ? this.input.sprinting : false,
       wantsJump: this.phase === 'playing' ? this.input.consumeJumpRequest(now, PHYSICS.JUMP_BUFFER) : false,
+      respawnTarget,
+      resolveSurface: (position, footY) => this.worldBuilder.getSurfaceBelow(position, footY),
+      resolveCollision: (position, velocity) => this.worldBuilder.resolvePlayerCollision(position, velocity),
     })
 
     const playerSnapshot = this.player.getSnapshot()
@@ -107,9 +116,15 @@ export class GameApp {
   }
 
   private buildSnapshot(): GameSnapshot {
+    const player = this.player.getSnapshot()
+    const environment = this.worldBuilder.getEnvironmentSnapshot(
+      player.position,
+      player.position.y - PLAYER.HALF_HEIGHT,
+    )
     return {
       fps: this.fps,
-      player: this.player.getSnapshot(),
+      player,
+      environment,
     }
   }
 

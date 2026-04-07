@@ -5,6 +5,14 @@ export const WORLD = {
   ROOFTOP_Y: 7,
 } as const
 
+export const PLAYER = {
+  HALF_HEIGHT: 0.9,
+  WIDTH: 0.55,
+  DEPTH: 0.35,
+  /** Small padding so the proxy does not graze wall meshes. */
+  COLLISION_SKIN: 0.03,
+} as const
+
 export const PHYSICS = {
   GRAVITY: -22,
   RUN_SPEED: 6.5,

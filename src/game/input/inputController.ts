@@ -1,6 +1,7 @@
 export class InputController {
   private pressed = new Set<string>()
   private jumpRequestedAt = -1
+  private respawnRequested = false
   private enabled = true
 
   constructor(target: Window) {
@@ -39,6 +40,14 @@ export class InputController {
     return fresh
   }
 
+  public consumeRespawnRequest(): boolean {
+    if (!this.enabled || !this.respawnRequested) {
+      return false
+    }
+    this.respawnRequested = false
+    return true
+  }
+
   private isDown(code: string): boolean {
     if (!this.enabled) {
       return false
@@ -50,6 +59,7 @@ export class InputController {
     this.enabled = enabled
     this.pressed.clear()
     this.jumpRequestedAt = -1
+    this.respawnRequested = false
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
@@ -60,6 +70,9 @@ export class InputController {
     if (event.code === 'Space') {
       this.jumpRequestedAt = performance.now() / 1000
     }
+    if (event.code === 'KeyR' && !event.repeat) {
+      this.respawnRequested = true
+    }
   }
 
   private handleKeyUp = (event: KeyboardEvent): void => {
@@ -68,5 +81,6 @@ export class InputController {
 
   private handleBlur = (): void => {
     this.pressed.clear()
+    this.respawnRequested = false
   }
 }
