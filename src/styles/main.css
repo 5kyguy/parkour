@@ -29,6 +29,100 @@ body {
   height: 100%;
 }
 
+.homepage-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(244, 196, 48, 0.22), transparent 44%),
+    linear-gradient(160deg, rgba(10, 17, 25, 0.78), rgba(17, 24, 33, 0.62));
+  z-index: 20;
+}
+
+.homepage-panel {
+  width: min(700px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
+  background: rgba(8, 16, 24, 0.84);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  padding: 28px;
+}
+
+.homepage-kicker {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f4c430;
+  opacity: 0.95;
+}
+
+.homepage-panel h1 {
+  margin: 0 0 10px;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.05;
+  color: #fff3d0;
+}
+
+.homepage-subtitle {
+  margin: 0;
+  font-size: clamp(16px, 2.3vw, 21px);
+  line-height: 1.35;
+  color: #f4e6be;
+}
+
+.homepage-copy {
+  margin: 16px 0 0;
+  max-width: 62ch;
+  line-height: 1.6;
+  color: rgba(245, 247, 250, 0.92);
+}
+
+.homepage-play {
+  margin-top: 20px;
+  border: 0;
+  border-radius: 10px;
+  background: #f4c430;
+  color: #2b1e16;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 12px 28px;
+  cursor: pointer;
+}
+
+.homepage-play:hover {
+  transform: translateY(-1px);
+}
+
+.homepage-play:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.homepage-controls {
+  margin: 14px 0 0;
+  color: rgba(245, 247, 250, 0.78);
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .homepage-overlay {
+    padding: 14px;
+  }
+
+  .homepage-panel {
+    padding: 20px;
+  }
+
+  .homepage-controls {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
+
 .debug-hud {
   position: absolute;
   top: 16px;

@@ -1,6 +1,8 @@
 export class InputController {
   private pressed = new Set<string>()
   private jumpRequestedAt = -1
+  private respawnRequested = false
+  private enabled = true
 
   constructor(target: Window) {
     target.addEventListener('keydown', this.handleKeyDown)
@@ -24,7 +26,19 @@ export class InputController {
     return this.isDown('ShiftLeft') || this.isDown('ShiftRight')
   }
 
+  /** Age of a pending jump in seconds, or null if none within buffer window. */
+  public peekJumpBufferAge(now: number, jumpBuffer: number): number | null {
+    if (!this.enabled || this.jumpRequestedAt < 0) {
+      return null
+    }
+    const age = now - this.jumpRequestedAt
+    return age <= jumpBuffer ? age : null
+  }
+
   public consumeJumpRequest(now: number, jumpBuffer: number): boolean {
+    if (!this.enabled) {
+      return false
+    }
     if (this.jumpRequestedAt < 0) {
       return false
     }
@@ -35,14 +49,43 @@ export class InputController {
     return fresh
   }
 
+  /** Down (S / ArrowDown) — slide on ground, queue roll when airborne. */
+  public get wantsDown(): boolean {
+    return this.isDown('KeyS') || this.isDown('ArrowDown')
+  }
+
+  public consumeRespawnRequest(): boolean {
+    if (!this.enabled || !this.respawnRequested) {
+      return false
+    }
+    this.respawnRequested = false
+    return true
+  }
+
   private isDown(code: string): boolean {
+    if (!this.enabled) {
+      return false
+    }
     return this.pressed.has(code)
   }
 
+  public setEnabled(enabled: boolean): void {
+    this.enabled = enabled
+    this.pressed.clear()
+    this.jumpRequestedAt = -1
+    this.respawnRequested = false
+  }
+
   private handleKeyDown = (event: KeyboardEvent): void => {
+    if (!this.enabled) {
+      return
+    }
     this.pressed.add(event.code)
     if (event.code === 'Space') {
       this.jumpRequestedAt = performance.now() / 1000
+    }
+    if (event.code === 'KeyR' && !event.repeat) {
+      this.respawnRequested = true
     }
   }
 
@@ -52,5 +95,6 @@ export class InputController {
 
   private handleBlur = (): void => {
     this.pressed.clear()
+    this.respawnRequested = false
   }
 }
