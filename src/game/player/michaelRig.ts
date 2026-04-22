@@ -22,6 +22,7 @@ type SecondaryMotionInput = {
 }
 
 const MODEL_PATH = '/assets/michael_v0.glb'
+const MAX_AUTO_ALIGNMENT_OFFSET = 2.5
 
 const CLIP_PATHS: Record<AnimationClipId, string> = {
   idle: '/assets/movements/idle_1.glb',
@@ -151,6 +152,7 @@ export class MichaelRig implements AnimationRuntime {
     try {
       const modelGltf = await this.loader.loadAsync(MODEL_PATH)
       this.visualRoot.add(modelGltf.scene)
+      this.prepareModelVisibility(modelGltf.scene)
       this.alignModelToCapsule(modelGltf.scene)
       this.mixer = new AnimationMixer(modelGltf.scene)
       this.visualRoot.visible = true
@@ -200,7 +202,25 @@ export class MichaelRig implements AnimationRuntime {
       return
     }
     const desiredFootY = -PLAYER.HALF_HEIGHT
-    this.visualRoot.position.y = desiredFootY - bounds.min.y
+    const offsetY = desiredFootY - bounds.min.y
+    // Guard against bad bounds from source assets that can hide the character.
+    if (Math.abs(offsetY) > MAX_AUTO_ALIGNMENT_OFFSET) {
+      this.visualRoot.position.y = 0
+      return
+    }
+    this.visualRoot.position.y = offsetY
+  }
+
+  /**
+   * Skinned imports can be incorrectly frustum-culled if authored bounds are odd.
+   * Disabling per-mesh culling keeps the character visible while moving/animating.
+   */
+  private prepareModelVisibility(modelRoot: Object3D): void {
+    modelRoot.traverse((node) => {
+      if ('isMesh' in node && node.isMesh) {
+        node.frustumCulled = false
+      }
+    })
   }
 
   private registerClip(clipId: AnimationClipId, clip: AnimationClip): void {

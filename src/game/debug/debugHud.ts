@@ -2,11 +2,33 @@ import type { GameSnapshot } from '../types'
 
 export class DebugHud {
   private readonly root: HTMLDivElement
+  private readonly toggleButton: HTMLButtonElement
+  private readonly content: HTMLDivElement
+  private expanded = true
+  private readonly onToggle?: (expanded: boolean) => void
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options?: { onToggle?: (expanded: boolean) => void }) {
+    this.onToggle = options?.onToggle
     this.root = document.createElement('div')
-    this.root.className = 'debug-hud'
+    this.root.className = 'debug-sidebar'
+
+    this.toggleButton = document.createElement('button')
+    this.toggleButton.className = 'debug-sidebar-toggle'
+    this.toggleButton.type = 'button'
+    this.toggleButton.addEventListener('click', () => {
+      this.expanded = !this.expanded
+      this.applyExpandedState()
+      this.onToggle?.(this.expanded)
+    })
+    this.root.appendChild(this.toggleButton)
+
+    this.content = document.createElement('div')
+    this.content.className = 'debug-hud'
+    this.root.appendChild(this.content)
+
     container.appendChild(this.root)
+    this.applyExpandedState()
+    this.onToggle?.(this.expanded)
   }
 
   public update(snapshot: GameSnapshot): void {
@@ -15,7 +37,7 @@ export class DebugHud {
     const jumpBuf =
       player.jumpBufferAge === null ? '—' : `${player.jumpBufferAge.toFixed(3)}s`
 
-    this.root.innerHTML = [
+    this.content.innerHTML = [
       '<h2>Phase 3 Animation</h2>',
       `<div><span>FPS</span><strong>${fps.toFixed(1)}</strong></div>`,
       `<div><span>State</span><strong>${player.state}</strong></div>`,
@@ -51,5 +73,11 @@ export class DebugHud {
 
   private formatTags(tags: string[]): string {
     return tags.length ? tags.join(', ') : 'none'
+  }
+
+  private applyExpandedState(): void {
+    this.root.classList.toggle('is-collapsed', !this.expanded)
+    this.toggleButton.setAttribute('aria-expanded', String(this.expanded))
+    this.toggleButton.textContent = this.expanded ? 'Hide Debug HUD' : 'Show Debug HUD'
   }
 }

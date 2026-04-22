@@ -5,8 +5,8 @@ import type { PlayerSnapshot } from '../types'
 export class FollowCamera {
   public readonly camera: PerspectiveCamera
   private readonly target = new Vector3()
+  private readonly focusTarget = new Vector3()
   private readonly desired = new Vector3()
-  private readonly lookAhead = new Vector3()
   private readonly upTiltOffset = new Vector3()
   private readonly forward = new Vector3(0, 0, 1)
   private readonly right = new Vector3(1, 0, 0)
@@ -40,17 +40,12 @@ export class FollowCamera {
   }
 
   public update(player: PlayerSnapshot): void {
-    this.target.copy(player.position)
-    this.target.y += 1.5
+    this.focusTarget.copy(player.position)
+    this.focusTarget.y += 1.5
+    this.target.copy(this.focusTarget)
     const basis = this.getPlanarBasis()
     const radius = CAMERA.DISTANCE
     const horizontalRadius = Math.cos(this.pitch) * radius
-
-    this.lookAhead
-      .copy(player.velocity)
-      .setY(0)
-      .multiplyScalar(CAMERA.LOOK_AHEAD / Math.max(1, player.planarSpeed))
-    this.target.add(this.lookAhead)
 
     const airborneTilt = !player.grounded
       ? Math.max(-0.18, Math.min(0.18, player.verticalSpeed * 0.01))
@@ -75,7 +70,7 @@ export class FollowCamera {
     }
 
     this.camera.position.lerp(this.desired, CAMERA.FOLLOW_LERP)
-    this.camera.lookAt(this.target)
+    this.camera.lookAt(this.focusTarget)
   }
 
   public resize(aspect: number): void {
