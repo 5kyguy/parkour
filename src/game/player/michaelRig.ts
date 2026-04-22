@@ -21,23 +21,24 @@ type SecondaryMotionInput = {
   acceleration: Vector3
 }
 
-const MODEL_PATH = '/assets/michael_v0.glb'
+const withBase = (path: string): string => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
+const MODEL_PATH = withBase('assets/michael_v0.glb')
 const MAX_AUTO_ALIGNMENT_OFFSET = 2.5
 
 const CLIP_PATHS: Record<AnimationClipId, string> = {
-  idle: '/assets/movements/idle_1.glb',
-  run: '/assets/movements/running.glb',
-  sprint: '/assets/movements/sprinting.glb',
-  jumpTakeoff: '/assets/movements/jump_takeoff.glb',
-  airborne: '/assets/movements/jumping_down.glb',
-  land: '/assets/movements/landing_hard.glb',
-  vault: '/assets/movements/jumping_over_obstacle_with_two_hand_planted.glb',
-  climb: '/assets/movements/climbing_up_wall.glb',
-  wallRun: '/assets/movements/wall_run.glb',
-  roll: '/assets/movements/falling_to_roll_land.glb',
-  slide: '/assets/movements/slide.glb',
-  leap: '/assets/movements/leap.glb',
-  stumble: '/assets/movements/run_to_trip.glb',
+  idle: withBase('assets/movements/idle_1.glb'),
+  run: withBase('assets/movements/running.glb'),
+  sprint: withBase('assets/movements/sprinting.glb'),
+  jumpTakeoff: withBase('assets/movements/leap.glb'),
+  airborne: withBase('assets/movements/jumping_down.glb'),
+  land: withBase('assets/movements/landing_hard.glb'),
+  vault: withBase('assets/movements/speed_vault.glb'),
+  climb: withBase('assets/movements/climbing_up_wall.glb'),
+  wallRun: withBase('assets/movements/wall_run_then_jump_left.glb'),
+  roll: withBase('assets/movements/falling_to_roll_land.glb'),
+  slide: withBase('assets/movements/dash_vault.glb'),
+  leap: withBase('assets/movements/leap.glb'),
+  stumble: withBase('assets/movements/falling_to_roll_land.glb'),
 }
 
 export class MichaelRig implements AnimationRuntime {
