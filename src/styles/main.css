@@ -18,8 +18,18 @@ body {
 }
 
 .game-root {
+  --hud-expanded-width: min(420px, 35vw);
+  --hud-collapsed-width: 56px;
   position: relative;
   width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--hud-expanded-width);
+}
+
+.game-viewport {
+  position: relative;
+  min-width: 0;
   height: 100%;
 }
 
@@ -123,20 +133,56 @@ body {
   }
 }
 
-.debug-hud {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  min-width: 320px;
-  max-width: min(440px, calc(100vw - 32px));
-  border: 1px solid rgba(255, 255, 255, 0.25);
+.debug-sidebar {
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(8, 16, 24, 0.82);
   backdrop-filter: blur(3px);
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  overflow: hidden;
+}
+
+.debug-sidebar-toggle {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(11, 20, 30, 0.9);
+  color: #f5f7fa;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.debug-sidebar-toggle:hover {
+  border-color: rgba(244, 196, 48, 0.6);
+}
+
+.debug-hud {
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 10px;
+  background: rgba(11, 20, 30, 0.72);
   padding: 12px;
   display: grid;
   gap: 6px;
   font-size: 13px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.debug-sidebar.is-collapsed {
+  padding: 8px;
+}
+
+.debug-sidebar.is-collapsed .debug-hud {
+  display: none;
+}
+
+.game-root.hud-collapsed {
+  grid-template-columns: minmax(0, 1fr) var(--hud-collapsed-width);
 }
 
 .debug-hud h2 {

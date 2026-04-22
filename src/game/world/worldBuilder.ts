@@ -18,11 +18,13 @@ import type {
   BuildingModuleDefinition,
   CollisionBox,
   FacadeStyle,
+  InteractionHint,
   MaterialKind,
   PropModuleDefinition,
   RoofStyle,
   TraversalTag,
   WorldBounds,
+  WorldInteractionProfile,
   WorldModuleDefinition,
   WorldModuleRuntime,
   WorldSpawnPoint,
@@ -85,6 +87,7 @@ export class WorldBuilder {
       label: 'Florence Ground',
       layer: 'ground',
       routeKind: 'ground',
+      material: 'streetStone',
       tags: [],
       y: WORLD.GROUND_Y,
       bounds: {
@@ -205,6 +208,7 @@ export class WorldBuilder {
 
   public getEnvironmentSnapshot(position: Vector3, footY: number): EnvironmentSnapshot {
     const surface = this.getSurfaceBelow(position, footY, 4)
+    const interaction = this.getInteractionProfile(position)
     const nearbyTags = new Set<TraversalTag>(surface?.tags ?? [])
     for (const module of this.moduleRuntime) {
       if (this.distanceToBounds(position.x, position.z, module.bounds) > NEARBY_TAG_RADIUS) {
@@ -219,6 +223,9 @@ export class WorldBuilder {
       surfaceLabel: surface?.label ?? 'Florence Ground',
       layer: surface?.layer ?? 'ground',
       routeKind: surface?.routeKind ?? 'ground',
+      surfaceMaterial: surface?.material ?? 'streetStone',
+      nearestArchetype: interaction.archetype,
+      interactionHint: interaction.hint,
       surfaceTags: surface?.tags ?? [],
       nearbyTags: [...nearbyTags].sort(),
       spawnLabel:
@@ -246,6 +253,7 @@ export class WorldBuilder {
         label: module.label,
         layer: module.layer,
         routeKind: module.routeKind,
+        material: module.material,
         tags: module.tags,
         y: module.position.y,
         bounds,
@@ -254,6 +262,7 @@ export class WorldBuilder {
         id: module.id,
         label: module.label,
         archetype: module.archetype,
+        material: module.material,
         layer: module.layer,
         routeKind: module.routeKind,
         tags: module.tags,
@@ -378,6 +387,7 @@ export class WorldBuilder {
         label: module.label,
         layer: module.layer,
         routeKind: module.routeKind,
+        material: module.roofMaterial,
         tags: module.roofTags,
         y: module.height,
         bounds: partBounds,
@@ -388,6 +398,7 @@ export class WorldBuilder {
       id: module.id,
       label: module.label,
       archetype: module.archetype,
+      material: module.wallMaterial,
       layer: module.layer,
       routeKind: module.routeKind,
       tags: [...new Set([...module.tags, ...module.wallTags, ...module.roofTags])],
@@ -645,6 +656,7 @@ export class WorldBuilder {
       id: module.id,
       label: module.label,
       archetype: module.archetype,
+      material: module.material,
       layer: module.layer,
       routeKind: module.routeKind,
       tags: module.tags,
@@ -660,10 +672,69 @@ export class WorldBuilder {
       label: module.label,
       layer: module.layer,
       routeKind: module.routeKind,
+      material: module.material,
       tags: module.tags,
       y: module.position.y + module.size.y / 2,
       bounds,
     })
+  }
+
+  public getInteractionProfile(position: Vector3): WorldInteractionProfile {
+    let nearest: WorldModuleRuntime | null = null
+    let bestDistance = Number.POSITIVE_INFINITY
+    for (const module of this.moduleRuntime) {
+      const distance = this.distanceToBounds(position.x, position.z, module.bounds)
+      if (distance > 5.5) {
+        continue
+      }
+      if (distance >= bestDistance) {
+        continue
+      }
+      nearest = module
+      bestDistance = distance
+    }
+
+    if (!nearest) {
+      return {
+        moduleId: null,
+        moduleLabel: 'Open route',
+        archetype: 'none',
+        material: 'streetStone',
+        tags: [],
+        hint: 'none',
+      }
+    }
+
+    return {
+      moduleId: nearest.id,
+      moduleLabel: nearest.label,
+      archetype: nearest.archetype,
+      material: nearest.material,
+      tags: nearest.tags,
+      hint: this.pickInteractionHint(nearest),
+    }
+  }
+
+  private pickInteractionHint(module: WorldModuleRuntime): InteractionHint {
+    if (module.archetype === 'archway') {
+      return 'slideArchway'
+    }
+    if (module.tags.includes('vaultable')) {
+      if (module.archetype === 'marketStall' || module.archetype === 'crateCluster' || module.archetype === 'barrelStack') {
+        return 'vaultableProp'
+      }
+      return 'ledgeRecovery'
+    }
+    if (module.tags.includes('wallRunnable')) {
+      return 'wallRunWall'
+    }
+    if (module.tags.includes('climbable')) {
+      return 'climbableWall'
+    }
+    if (module.tags.includes('ledge')) {
+      return 'ledgeRecovery'
+    }
+    return 'none'
   }
 
   private addCollisionBox(box: CollisionBox): void {

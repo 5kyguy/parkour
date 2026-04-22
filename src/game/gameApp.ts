@@ -11,6 +11,7 @@ type GamePhase = 'intro' | 'playing'
 
 export class GameApp {
   private readonly host: HTMLDivElement
+  private readonly viewport: HTMLDivElement
   private readonly scene = new Scene()
   private readonly renderer = new WebGLRenderer({ antialias: true })
   private readonly clock = new Clock()
@@ -31,16 +32,25 @@ export class GameApp {
     this.host.innerHTML = ''
     this.host.classList.add('game-root')
 
+    this.viewport = document.createElement('div')
+    this.viewport.className = 'game-viewport'
+    this.host.appendChild(this.viewport)
+
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    this.renderer.setSize(host.clientWidth, host.clientHeight)
+    this.renderer.setSize(this.viewport.clientWidth, this.viewport.clientHeight)
     this.renderer.domElement.className = 'game-canvas'
-    this.host.appendChild(this.renderer.domElement)
+    this.viewport.appendChild(this.renderer.domElement)
 
     this.worldBuilder.build(this.scene)
     const initialSpawnPoint = this.worldBuilder.getInitialSpawnPoint()
-    this.camera = new FollowCamera(host.clientWidth / host.clientHeight)
+    this.camera = new FollowCamera(this.viewport.clientWidth / this.viewport.clientHeight)
     this.player = new PlayerController(this.scene, initialSpawnPoint)
-    this.debugHud = new DebugHud(this.host)
+    this.debugHud = new DebugHud(this.host, {
+      onToggle: (expanded) => {
+        this.host.classList.toggle('hud-collapsed', !expanded)
+        this.handleResize()
+      },
+    })
     this.input.setEnabled(false)
   }
 
@@ -99,6 +109,7 @@ export class GameApp {
       traversal: this.worldBuilder.getWorldTraversalData(),
       resolveSurface: (position, footY) => this.worldBuilder.getSurfaceBelow(position, footY),
       resolveCollision: (position, velocity) => this.worldBuilder.resolvePlayerCollision(position, velocity),
+      resolveInteraction: (position) => this.worldBuilder.getInteractionProfile(position),
     })
 
     const playerSnapshot = this.player.getSnapshot()
@@ -137,8 +148,11 @@ export class GameApp {
   }
 
   private handleResize = (): void => {
-    const width = this.host.clientWidth
-    const height = this.host.clientHeight
+    const width = this.viewport.clientWidth
+    const height = this.viewport.clientHeight
+    if (width <= 0 || height <= 0) {
+      return
+    }
     this.renderer.setSize(width, height)
     this.camera.resize(width / height)
   }
