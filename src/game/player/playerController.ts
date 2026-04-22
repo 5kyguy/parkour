@@ -1,7 +1,7 @@
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Scene, Vector3 } from 'three'
 import { PHYSICS, PLAYER } from '../constants'
-import type { MovementState, PlayerSnapshot } from '../types'
-import type { WorldSurface } from '../world/worldTypes'
+import type { AnimationDebugSnapshot, MovementState, PlayerSnapshot } from '../types'
+import type { WorldInteractionProfile, WorldSurface } from '../world/worldTypes'
 import {
   probeClimbStart,
   probeRooftopLeap,
@@ -9,6 +9,8 @@ import {
   probeWallRun,
   type WorldTraversalData,
 } from '../world/traversalQueries'
+import { AnimationController } from './animationController'
+import { MichaelRig } from './michaelRig'
 
 type UpdateArgs = {
   deltaTime: number
@@ -23,12 +25,23 @@ type UpdateArgs = {
   traversal: WorldTraversalData
   resolveSurface: (position: Vector3, footY: number) => WorldSurface | null
   resolveCollision: (position: Vector3, velocity: Vector3) => void
+  resolveInteraction: (position: Vector3) => WorldInteractionProfile
 }
 
 export class PlayerController {
   private readonly root = new Group()
+  private readonly proxyRoot = new Group()
   private readonly velocity = new Vector3()
+  private readonly prevVelocity = new Vector3()
   private readonly heading = new Vector3(0, 0, 1)
+  private readonly animationController = new AnimationController()
+  private readonly animationDebug: AnimationDebugSnapshot = {
+    desiredClip: 'idle',
+    activeClip: 'idle',
+    usedFallback: false,
+    fallbackReason: null,
+    missingClipCount: 0,
+  }
 
   private grounded = false
   private lastGroundedAt = -1
@@ -53,9 +66,20 @@ export class PlayerController {
   private pendingRoll = false
   private lastJumpBufferAge: number | null = null
   private lastLandingImpact = 0
+  private interactionKind = 'none'
+  private interactionProfile: WorldInteractionProfile = {
+    moduleId: null,
+    moduleLabel: 'Open route',
+    archetype: 'none',
+    material: 'streetStone',
+    tags: [],
+    hint: 'none',
+  }
+  private readonly michaelRig: MichaelRig
 
   constructor(scene: Scene, spawnPoint: Vector3) {
-    this.createMichaelProxy()
+    const { tieNode, badgeNode, visualNodes } = this.createMichaelProxy()
+    this.michaelRig = new MichaelRig(this.root, visualNodes, tieNode, badgeNode)
     this.root.position.copy(spawnPoint)
     scene.add(this.root)
   }
@@ -73,14 +97,18 @@ export class PlayerController {
       traversal,
       resolveSurface,
       resolveCollision,
+      resolveInteraction,
     } = args
 
     this.lastJumpBufferAge = args.jumpBufferAge
+    this.interactionProfile = resolveInteraction(this.root.position)
 
     if (respawnTarget) {
       this.respawn(respawnTarget)
       this.lastGroundedAt = now
       this.transitionNote = 'respawn'
+      this.interactionKind = 'respawn'
+      this.updateVisualState(deltaTime)
       return
     }
 
@@ -105,30 +133,35 @@ export class PlayerController {
       this.integrateVault(deltaTime, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'climb') {
       this.integrateClimb(deltaTime, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'wallRun') {
       this.integrateWallRun(deltaTime, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'slide') {
       this.integrateSlide(deltaTime, input, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'roll') {
       this.integrateRoll(deltaTime, resolveCollision, resolveSurface, now, input)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+      this.updateVisualState(deltaTime)
       return
     }
 
@@ -142,22 +175,28 @@ export class PlayerController {
       if (vault) {
         this.beginVault(vault.exitForwardX, vault.exitForwardZ)
         this.transitionNote = `vault:${vault.moduleId}`
+        this.interactionKind = `vault:${this.interactionProfile.archetype}`
         this.updateHeading()
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+        this.updateVisualState(deltaTime)
         return
       }
       if (leapOk && this.canJump(now)) {
         this.beginLeap(fwd.x, fwd.z)
         this.transitionNote = 'leap'
+        this.interactionKind = 'leap:roof_gap'
       } else if (climb) {
         this.beginClimb(climb)
         this.transitionNote = `climb:${climb.moduleId}`
+        this.interactionKind = `climb:${this.interactionProfile.archetype}`
         this.updateHeading()
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+        this.updateVisualState(deltaTime)
         return
       } else if (this.canJump(now)) {
         this.beginJump(now)
         this.transitionNote = 'jump'
+        this.interactionKind = 'jump:takeoff'
       }
     }
 
@@ -178,9 +217,11 @@ export class PlayerController {
       if (wr) {
         this.beginWallRun(wr.tangentX, wr.tangentZ, wr.wallNx, wr.wallNz)
         this.transitionNote = `wallRun:${wr.moduleId}`
+        this.interactionKind = `wallRun:${this.interactionProfile.material}`
         this.integrateWallRun(deltaTime, resolveCollision, resolveSurface, now)
         this.updateHeading()
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+        this.updateVisualState(deltaTime)
         return
       }
     }
@@ -189,9 +230,11 @@ export class PlayerController {
     if (this.grounded && wantsDown && input.lengthSq() > 0.15) {
       this.beginSlide(input.x, input.z)
       this.transitionNote = 'slide'
+      this.interactionKind = `slide:${this.interactionProfile.hint}`
       this.integrateSlide(deltaTime, input, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+      this.updateVisualState(deltaTime)
       return
     }
 
@@ -217,16 +260,25 @@ export class PlayerController {
 
     this.updateHeading()
     this.syncBaseStateFromFlags(sprinting, input, deltaTime)
+    this.updateVisualState(deltaTime)
   }
 
   public getSnapshot(): PlayerSnapshot {
     const now = performance.now() / 1000
     const coyoteRemaining = this.grounded ? 0 : Math.max(0, PHYSICS.COYOTE_TIME - (now - this.lastGroundedAt))
+    const planarSpeed = Math.hypot(this.velocity.x, this.velocity.z)
     return {
       position: this.root.position.clone(),
       velocity: this.velocity.clone(),
       state: this.state,
       grounded: this.grounded,
+      planarSpeed,
+      verticalSpeed: this.velocity.y,
+      landingImpact: this.lastLandingImpact,
+      interactionKind: this.interactionKind,
+      surfaceMaterial: this.interactionProfile.material,
+      nearbyArchetype: this.interactionProfile.archetype,
+      animation: { ...this.animationDebug },
       coyoteRemaining,
       landingGraceRemaining: this.landingGraceTimer,
       jumpBufferAge: this.lastJumpBufferAge,
@@ -472,13 +524,16 @@ export class PlayerController {
     if (this.pendingRoll || impact > PHYSICS.HARD_LANDING_THRESHOLD) {
       this.beginRoll()
       this.transitionNote = this.pendingRoll ? 'roll_down' : 'roll_hard'
+      this.interactionKind = this.pendingRoll ? 'roll:queued' : 'roll:hardLanding'
       return
     }
     if (impact > 4) {
       this.state = 'land'
       this.landingTimer = 0.12
+      this.interactionKind = impact > 8 ? 'comedy_stumble:hard' : 'land:impact'
       return
     }
+    this.interactionKind = 'land:soft'
   }
 
   private canJump(now: number): boolean {
@@ -552,20 +607,54 @@ export class PlayerController {
         return
       }
       this.state = this.velocity.y > 0 ? 'jump' : 'fall'
+      this.interactionKind = this.state === 'jump' ? 'jump:airborne' : 'fall:airborne'
       return
     }
 
     if (!input.lengthSq()) {
       this.state = 'idle'
+      this.interactionKind = `idle:${this.interactionProfile.hint}`
       return
     }
 
     this.state = sprinting ? 'sprint' : 'run'
+    this.interactionKind = `${this.state}:${this.interactionProfile.hint}`
+  }
+
+  private updateVisualState(deltaTime: number): void {
+    const acceleration = this.velocity.clone().sub(this.prevVelocity).multiplyScalar(1 / Math.max(deltaTime, 1 / 240))
+    this.prevVelocity.copy(this.velocity)
+    const planarSpeed = Math.hypot(this.velocity.x, this.velocity.z)
+    const debug = this.animationController.update(
+      {
+        deltaTime,
+        state: this.state,
+        grounded: this.grounded,
+        planarSpeed,
+        verticalSpeed: this.velocity.y,
+        interactionKind: this.interactionKind,
+      },
+      this.michaelRig,
+    )
+    this.animationDebug.desiredClip = debug.desiredClip
+    this.animationDebug.activeClip = debug.activeClip ?? 'none'
+    this.animationDebug.usedFallback = debug.usedFallback
+    this.animationDebug.fallbackReason = debug.fallbackReason
+    this.animationDebug.missingClipCount = this.michaelRig.getMissingClips().length
+
+    this.michaelRig.update(deltaTime)
+    this.michaelRig.updateSecondaryMotion({
+      deltaTime,
+      planarSpeed,
+      verticalSpeed: this.velocity.y,
+      acceleration,
+    })
   }
 
   private respawn(position: Vector3): void {
     this.root.position.copy(position)
     this.velocity.set(0, 0, 0)
+    this.prevVelocity.set(0, 0, 0)
     this.grounded = true
     this.state = 'idle'
     this.landingTimer = 0
@@ -574,13 +663,14 @@ export class PlayerController {
     this.slideTimer = 0
     this.rollTimer = 0
     this.pendingRoll = false
+    this.interactionKind = 'respawn'
   }
 
   private getFootY(): number {
     return this.root.position.y - PLAYER.HALF_HEIGHT
   }
 
-  private createMichaelProxy(): void {
+  private createMichaelProxy(): { tieNode: Mesh; badgeNode: Mesh; visualNodes: Group[] } {
     const shirt = new MeshStandardMaterial({ color: '#D4D0C8' })
     const pants = new MeshStandardMaterial({ color: '#3A3A3A' })
     const tie = new MeshStandardMaterial({ color: '#2B3A67' })
@@ -589,32 +679,39 @@ export class PlayerController {
 
     const legs = new Mesh(new BoxGeometry(0.58, 0.9, 0.3), pants)
     legs.position.y = -0.45
-    this.root.add(legs)
+    this.proxyRoot.add(legs)
 
     const torso = new Mesh(new BoxGeometry(0.82, 0.76, 0.4), shirt)
     torso.position.y = 0.08
-    this.root.add(torso)
+    this.proxyRoot.add(torso)
 
     const shoulders = new Mesh(new BoxGeometry(0.92, 0.18, 0.34), shirt)
     shoulders.position.y = 0.36
-    this.root.add(shoulders)
+    this.proxyRoot.add(shoulders)
 
     const head = new Mesh(new BoxGeometry(0.42, 0.42, 0.4), skin)
     head.position.y = 0.78
-    this.root.add(head)
+    this.proxyRoot.add(head)
 
     for (const side of [-1, 1]) {
       const arm = new Mesh(new BoxGeometry(0.18, 0.68, 0.18), shirt)
       arm.position.set(side * 0.4, -0.04, 0)
-      this.root.add(arm)
+      this.proxyRoot.add(arm)
     }
 
     const tieMesh = new Mesh(new BoxGeometry(0.12, 0.5, 0.04), tie)
     tieMesh.position.set(0, 0.02, 0.22)
-    this.root.add(tieMesh)
+    this.proxyRoot.add(tieMesh)
 
     const badgeMesh = new Mesh(new BoxGeometry(0.16, 0.22, 0.03), badge)
     badgeMesh.position.set(0.18, -0.02, 0.23)
-    this.root.add(badgeMesh)
+    this.proxyRoot.add(badgeMesh)
+
+    this.root.add(this.proxyRoot)
+    return {
+      tieNode: tieMesh,
+      badgeNode: badgeMesh,
+      visualNodes: [this.proxyRoot],
+    }
   }
 }

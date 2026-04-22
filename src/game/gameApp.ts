@@ -99,6 +99,7 @@ export class GameApp {
       traversal: this.worldBuilder.getWorldTraversalData(),
       resolveSurface: (position, footY) => this.worldBuilder.getSurfaceBelow(position, footY),
       resolveCollision: (position, velocity) => this.worldBuilder.resolvePlayerCollision(position, velocity),
+      resolveInteraction: (position) => this.worldBuilder.getInteractionProfile(position),
     })
 
     const playerSnapshot = this.player.getSnapshot()

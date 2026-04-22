@@ -152,6 +152,7 @@ export type WorldSurface = {
   label: string
   layer: WorldLayer
   routeKind: WorldRouteKind
+  material: MaterialKind
   tags: TraversalTag[]
   y: number
   bounds: WorldBounds
@@ -161,10 +162,28 @@ export type WorldModuleRuntime = {
   id: string
   label: string
   archetype: ModuleArchetype
+  material: MaterialKind
   layer: WorldLayer
   routeKind: WorldRouteKind
   tags: TraversalTag[]
   bounds: WorldBounds
+}
+
+export type InteractionHint =
+  | 'none'
+  | 'vaultableProp'
+  | 'wallRunWall'
+  | 'climbableWall'
+  | 'slideArchway'
+  | 'ledgeRecovery'
+
+export type WorldInteractionProfile = {
+  moduleId: string | null
+  moduleLabel: string
+  archetype: ModuleArchetype | 'none'
+  material: MaterialKind
+  tags: TraversalTag[]
+  hint: InteractionHint
 }
 
 export type WorldSpawnPoint = {

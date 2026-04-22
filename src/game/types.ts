@@ -1,5 +1,12 @@
 import type { Vector3 } from 'three'
-import type { TraversalTag, WorldLayer, WorldRouteKind } from './world/worldTypes'
+import type {
+  InteractionHint,
+  MaterialKind,
+  ModuleArchetype,
+  TraversalTag,
+  WorldLayer,
+  WorldRouteKind,
+} from './world/worldTypes'
 
 export type MovementState =
   | 'idle'
@@ -20,6 +27,13 @@ export type PlayerSnapshot = {
   velocity: Vector3
   state: MovementState
   grounded: boolean
+  planarSpeed: number
+  verticalSpeed: number
+  landingImpact: number
+  interactionKind: string
+  surfaceMaterial: MaterialKind
+  nearbyArchetype: ModuleArchetype | 'none'
+  animation: AnimationDebugSnapshot
   /** Seconds remaining for coyote jump after leaving ground. */
   coyoteRemaining: number
   /** Seconds remaining in landing grace window. */
@@ -40,7 +54,18 @@ export type EnvironmentSnapshot = {
   surfaceLabel: string
   layer: WorldLayer
   routeKind: WorldRouteKind
+  surfaceMaterial: MaterialKind
+  nearestArchetype: ModuleArchetype | 'none'
+  interactionHint: InteractionHint
   surfaceTags: TraversalTag[]
   nearbyTags: TraversalTag[]
   spawnLabel: string
+}
+
+export type AnimationDebugSnapshot = {
+  desiredClip: string
+  activeClip: string
+  usedFallback: boolean
+  fallbackReason: string | null
+  missingClipCount: number
 }
