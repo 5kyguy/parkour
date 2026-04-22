@@ -197,18 +197,15 @@ export class MichaelRig implements AnimationRuntime {
    * This prevents visual floating when source assets have different pivots.
    */
   private alignModelToCapsule(modelRoot: Object3D): void {
+    modelRoot.updateMatrixWorld(true)
     const bounds = new Box3().setFromObject(modelRoot)
     if (!Number.isFinite(bounds.min.y)) {
       return
     }
     const desiredFootY = -PLAYER.HALF_HEIGHT
     const offsetY = desiredFootY - bounds.min.y
-    // Guard against bad bounds from source assets that can hide the character.
-    if (Math.abs(offsetY) > MAX_AUTO_ALIGNMENT_OFFSET) {
-      this.visualRoot.position.y = 0
-      return
-    }
-    this.visualRoot.position.y = offsetY
+    // Clamp extremes from malformed imported bounds instead of resetting to zero.
+    this.visualRoot.position.y = MathUtils.clamp(offsetY, -MAX_AUTO_ALIGNMENT_OFFSET, MAX_AUTO_ALIGNMENT_OFFSET)
   }
 
   /**

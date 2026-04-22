@@ -1,6 +1,7 @@
 import './styles/main.css'
 import { GameApp } from './game/gameApp'
 
+const builderIconUrl = new URL('../assets/profile.jpg', import.meta.url).href
 const appRoot = document.querySelector<HTMLDivElement>('#app')
 
 if (!appRoot) {
@@ -9,6 +10,17 @@ if (!appRoot) {
 
 const game = new GameApp(appRoot)
 game.start()
+
+const builderCredit = document.createElement('a')
+builderCredit.className = 'builder-credit'
+builderCredit.href = 'https://x.com/0x5kyguy'
+builderCredit.target = '_blank'
+builderCredit.rel = 'noopener noreferrer'
+builderCredit.innerHTML = [
+  '<span>Being built by</span>',
+  `<img src="${builderIconUrl}" alt="0x5kyguy profile" />`,
+].join('')
+appRoot.appendChild(builderCredit)
 
 const homepage = document.createElement('section')
 homepage.className = 'homepage-overlay'

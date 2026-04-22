@@ -118,6 +118,38 @@ body {
   font-size: 14px;
 }
 
+.builder-credit {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(8, 16, 24, 0.76);
+  backdrop-filter: blur(3px);
+  color: #f5f7fa;
+  padding: 6px 10px 6px 8px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.builder-credit:hover {
+  border-color: rgba(244, 196, 48, 0.6);
+}
+
+.builder-credit img {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+}
+
 @media (max-width: 640px) {
   .homepage-overlay {
     padding: 14px;
