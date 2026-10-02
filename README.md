@@ -33,6 +33,13 @@ yarn install --frozen-lockfile
 yarn dev
 ```
 
+Run the character, input, and movement tests with a Node version that supports
+TypeScript stripping:
+
+```sh
+yarn test
+```
+
 Build and serve the production output:
 
 ```sh

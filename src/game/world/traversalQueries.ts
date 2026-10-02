@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import { PHYSICS, PLAYER, WORLD } from '../constants'
+import { PHYSICS, PLAYER, WORLD } from '../constants.ts'
 import type { WorldBounds, WorldModuleRuntime, WorldSurface } from './worldTypes'
 
 export type WorldTraversalData = {
@@ -111,15 +111,12 @@ export function probeVaultAhead(
 
     if (distXZ < bestDist) {
       bestDist = distXZ
-      const awayX = position.x - cx
-      const awayZ = position.z - cz
-      const awayLen = Math.hypot(awayX, awayZ) || 1
       best = {
         moduleId: mod.id,
         label: mod.label,
         landingY,
-        exitForwardX: awayX / awayLen,
-        exitForwardZ: awayZ / awayLen,
+        exitForwardX: fx,
+        exitForwardZ: fz,
       }
     }
   }

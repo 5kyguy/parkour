@@ -35,18 +35,9 @@ export class InputController {
     return age <= jumpBuffer ? age : null
   }
 
-  public consumeJumpRequest(now: number, jumpBuffer: number): boolean {
-    if (!this.enabled) {
-      return false
-    }
-    if (this.jumpRequestedAt < 0) {
-      return false
-    }
-    const fresh = now - this.jumpRequestedAt <= jumpBuffer
-    if (fresh) {
-      this.jumpRequestedAt = -1
-    }
-    return fresh
+  /** Called only when the motor begins the requested move. */
+  public acknowledgeJumpRequest(): void {
+    this.jumpRequestedAt = -1
   }
 
   /** Down (S / ArrowDown) — slide on ground, queue roll when airborne. */
@@ -71,6 +62,10 @@ export class InputController {
 
   public setEnabled(enabled: boolean): void {
     this.enabled = enabled
+    this.clear()
+  }
+
+  public clear(): void {
     this.pressed.clear()
     this.jumpRequestedAt = -1
     this.respawnRequested = false
@@ -81,7 +76,7 @@ export class InputController {
       return
     }
     this.pressed.add(event.code)
-    if (event.code === 'Space') {
+    if (event.code === 'Space' && !event.repeat) {
       this.jumpRequestedAt = performance.now() / 1000
     }
     if (event.code === 'KeyR' && !event.repeat) {
@@ -94,7 +89,6 @@ export class InputController {
   }
 
   private handleBlur = (): void => {
-    this.pressed.clear()
-    this.respawnRequested = false
+    this.clear()
   }
 }

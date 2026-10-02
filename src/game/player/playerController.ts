@@ -1,6 +1,6 @@
 import { Group, Scene, Vector3 } from 'three'
-import { PHYSICS, PLAYER } from '../constants'
-import { Character } from '../character/character'
+import { PHYSICS, PLAYER } from '../constants.ts'
+import { Character } from '../character/character.ts'
 import type { MovementState, PlayerSnapshot } from '../types'
 import type { WorldInteractionProfile, WorldSurface } from '../world/worldTypes'
 import {
@@ -9,7 +9,7 @@ import {
   probeVaultAhead,
   probeWallRun,
   type WorldTraversalData,
-} from '../world/traversalQueries'
+} from '../world/traversalQueries.ts'
 
 type UpdateArgs = {
   deltaTime: number
@@ -18,6 +18,7 @@ type UpdateArgs = {
   moveZ: number
   sprinting: boolean
   wantsJump: boolean
+  acceptJump: () => void
   wantsDown: boolean
   jumpBufferAge: number | null
   respawnTarget?: Vector3 | null
@@ -153,13 +154,14 @@ export class PlayerController {
     }
 
     // --- Attempt traversal entry (grounded) ---
-    if (this.grounded && wantsJump) {
+    if (wantsJump && this.canJump(now)) {
       const fwd = this.getTraversalForwardXZ(input)
-      const vault = probeVaultAhead(this.root.position, footY, fwd.x, fwd.z, traversal)
-      const leapOk = probeRooftopLeap(this.root.position, footY, fwd.x, fwd.z, surfaceBelow)
-      const climb = probeClimbStart(this.root.position, footY, fwd.x, fwd.z, traversal)
+      const vault = this.grounded ? probeVaultAhead(this.root.position, footY, fwd.x, fwd.z, traversal) : null
+      const leapOk = this.grounded && probeRooftopLeap(this.root.position, footY, fwd.x, fwd.z, surfaceBelow)
+      const climb = this.grounded ? probeClimbStart(this.root.position, footY, fwd.x, fwd.z, traversal) : null
 
       if (vault) {
+        args.acceptJump()
         this.beginVault(vault.exitForwardX, vault.exitForwardZ)
         this.transitionNote = `vault:${vault.moduleId}`
         this.interactionKind = `vault:${this.interactionProfile.archetype}`
@@ -168,10 +170,12 @@ export class PlayerController {
         return
       }
       if (leapOk && this.canJump(now)) {
+        args.acceptJump()
         this.beginLeap(fwd.x, fwd.z)
         this.transitionNote = 'leap'
         this.interactionKind = 'leap:roof_gap'
       } else if (climb) {
+        args.acceptJump()
         this.beginClimb(climb)
         this.transitionNote = `climb:${climb.moduleId}`
         this.interactionKind = `climb:${this.interactionProfile.archetype}`
@@ -179,6 +183,7 @@ export class PlayerController {
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
         return
       } else if (this.canJump(now)) {
+        args.acceptJump()
         this.beginJump(now)
         this.transitionNote = 'jump'
         this.interactionKind = 'jump:takeoff'
@@ -235,7 +240,7 @@ export class PlayerController {
     resolveCollision(this.root.position, this.velocity)
 
     const wasGrounded = this.grounded
-    this.resolveGroundContact(now, resolveSurface, surfaceBelow)
+    this.resolveGroundContact(now, resolveSurface)
 
     if (!wasGrounded && this.grounded) {
       this.onLanded(now)
@@ -277,6 +282,8 @@ export class PlayerController {
     }
     this.velocity.y = PHYSICS.JUMP_VELOCITY
     this.grounded = false
+    this.lastGroundedAt = -Infinity
+    this.landingGraceTimer = 0
     this.state = 'jump'
   }
 
@@ -288,6 +295,8 @@ export class PlayerController {
     this.velocity.x += fx * PHYSICS.LEAP_FORWARD_BOOST
     this.velocity.z += fz * PHYSICS.LEAP_FORWARD_BOOST
     this.grounded = false
+    this.lastGroundedAt = -Infinity
+    this.landingGraceTimer = 0
     this.state = 'leap'
   }
 
@@ -352,7 +361,7 @@ export class PlayerController {
     this.velocity.y += PHYSICS.GRAVITY * 0.65 * deltaTime
     this.root.position.addScaledVector(this.velocity, deltaTime)
     resolveCollision(this.root.position, this.velocity)
-    this.resolveGroundContact(now, resolveSurface, resolveSurface(this.root.position, this.getFootY()))
+    this.resolveGroundContact(now, resolveSurface)
 
     if (this.grounded) {
       this.state = 'run'
@@ -400,7 +409,7 @@ export class PlayerController {
 
     this.root.position.addScaledVector(this.velocity, deltaTime)
     resolveCollision(this.root.position, this.velocity)
-    this.resolveGroundContact(now, resolveSurface, resolveSurface(this.root.position, this.getFootY()))
+    this.resolveGroundContact(now, resolveSurface)
 
     if (this.grounded) {
       this.state = 'run'
@@ -434,7 +443,7 @@ export class PlayerController {
     this.velocity.y += PHYSICS.GRAVITY * deltaTime
     this.root.position.addScaledVector(this.velocity, deltaTime)
     resolveCollision(this.root.position, this.velocity)
-    this.resolveGroundContact(now, resolveSurface, resolveSurface(this.root.position, this.getFootY()))
+    this.resolveGroundContact(now, resolveSurface)
 
     if (!this.grounded) {
       this.state = 'fall'
@@ -465,7 +474,7 @@ export class PlayerController {
     this.velocity.y += PHYSICS.GRAVITY * deltaTime
     this.root.position.addScaledVector(this.velocity, deltaTime)
     resolveCollision(this.root.position, this.velocity)
-    this.resolveGroundContact(now, resolveSurface, resolveSurface(this.root.position, this.getFootY()))
+    this.resolveGroundContact(now, resolveSurface)
 
     if (this.rollTimer <= 0) {
       this.state = this.grounded ? this.pickGroundLocomotion(false, input) : 'fall'
@@ -503,9 +512,10 @@ export class PlayerController {
     this.landingGraceTimer = PHYSICS.LANDING_GRACE
     const impact = this.lastLandingImpact
     if (this.pendingRoll || impact > PHYSICS.HARD_LANDING_THRESHOLD) {
+      const queuedRoll = this.pendingRoll
       this.beginRoll()
-      this.transitionNote = this.pendingRoll ? 'roll_down' : 'roll_hard'
-      this.interactionKind = this.pendingRoll ? 'roll:queued' : 'roll:hardLanding'
+      this.transitionNote = queuedRoll ? 'roll_down' : 'roll_hard'
+      this.interactionKind = queuedRoll ? 'roll:queued' : 'roll:hardLanding'
       return
     }
     if (impact > 4) {
@@ -530,10 +540,9 @@ export class PlayerController {
   private resolveGroundContact(
     now: number,
     resolveSurface: (position: Vector3, footY: number) => WorldSurface | null,
-    hintSurface: WorldSurface | null,
   ): void {
     const footY = this.getFootY()
-    const surface = hintSurface ?? resolveSurface(this.root.position, footY)
+    const surface = resolveSurface(this.root.position, footY)
     if (surface && footY <= surface.y && this.velocity.y <= 0) {
       if (!this.grounded) {
         this.lastLandingImpact = Math.max(0, -this.velocity.y)

@@ -1,8 +1,9 @@
-import { Clock, Scene, Vector3, WebGLRenderer } from 'three'
+import { Scene, Vector3, WebGLRenderer } from 'three'
 import { FollowCamera } from './camera/followCamera'
 import { PHYSICS, PLAYER } from './constants'
 import { DebugHud } from './debug/debugHud'
 import { InputController } from './input/inputController'
+import { FixedStepper } from './movement/fixedStepper'
 import { PlayerController } from './player/playerController'
 import type { GameSnapshot } from './types'
 import { WorldBuilder } from './world/worldBuilder'
@@ -14,7 +15,7 @@ export class GameApp {
   private readonly viewport: HTMLDivElement
   private readonly scene = new Scene()
   private readonly renderer = new WebGLRenderer({ antialias: true })
-  private readonly clock = new Clock()
+  private readonly stepper = new FixedStepper()
   private readonly worldBuilder = new WorldBuilder()
   private readonly input = new InputController(window)
   private readonly camera: FollowCamera
@@ -25,6 +26,7 @@ export class GameApp {
   private framesInSecond = 0
   private fps = 0
   private fpsStartedAt = 0
+  private lastFrameAt: number | null = null
   private phase: GamePhase = 'intro'
 
   constructor(host: HTMLDivElement) {
@@ -56,8 +58,8 @@ export class GameApp {
 
   public start(): void {
     this.fpsStartedAt = performance.now()
-    this.clock.start()
     window.addEventListener('resize', this.handleResize)
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
     this.renderer.domElement.addEventListener('click', this.handleCanvasClick)
     window.addEventListener('mousemove', this.handleMouseMove)
     requestAnimationFrame(this.tick)
@@ -72,9 +74,22 @@ export class GameApp {
     await this.requestPointerLock()
   }
 
-  private tick = (): void => {
-    const deltaTime = Math.min(this.clock.getDelta(), 1 / 30)
-    const now = performance.now() / 1000
+  private tick = (frameAt: number): void => {
+    const elapsed = this.lastFrameAt === null ? 0 : Math.max(0, (frameAt - this.lastFrameAt) / 1000)
+    this.lastFrameAt = frameAt
+    const now = frameAt / 1000
+    this.stepper.advance(elapsed, (deltaTime) => this.simulate(deltaTime, now))
+    this.player.updateVisual(Math.min(elapsed, 1 / 30), now)
+    this.camera.update(this.player.getSnapshot())
+
+    this.renderer.render(this.scene, this.camera.camera)
+    this.updateFps()
+    this.debugHud.update(this.buildSnapshot())
+
+    requestAnimationFrame(this.tick)
+  }
+
+  private simulate(deltaTime: number, now: number): void {
     const basis = this.camera.getPlanarBasis()
 
     this.desiredMove
@@ -90,11 +105,12 @@ export class GameApp {
       this.phase === 'playing' && this.input.consumeRespawnRequest()
         ? this.worldBuilder.getRespawnPoint(this.player.getPosition())
         : null
+    if (respawnTarget) {
+      this.input.acknowledgeJumpRequest()
+    }
 
     const jumpBufferAge =
       this.phase === 'playing' ? this.input.peekJumpBufferAge(now, PHYSICS.JUMP_BUFFER) : null
-    const wantsJump =
-      this.phase === 'playing' ? this.input.consumeJumpRequest(now, PHYSICS.JUMP_BUFFER) : false
 
     this.player.update({
       deltaTime,
@@ -102,7 +118,8 @@ export class GameApp {
       moveX: this.desiredMove.x,
       moveZ: this.desiredMove.z,
       sprinting: this.phase === 'playing' ? this.input.sprinting : false,
-      wantsJump,
+      wantsJump: jumpBufferAge !== null,
+      acceptJump: () => this.input.acknowledgeJumpRequest(),
       wantsDown: this.phase === 'playing' ? this.input.wantsDown : false,
       jumpBufferAge,
       respawnTarget,
@@ -111,16 +128,14 @@ export class GameApp {
       resolveCollision: (position, velocity) => this.worldBuilder.resolvePlayerCollision(position, velocity),
       resolveInteraction: (position) => this.worldBuilder.getInteractionProfile(position),
     })
-    this.player.updateVisual(deltaTime, now)
+  }
 
-    const playerSnapshot = this.player.getSnapshot()
-    this.camera.update(playerSnapshot)
-
-    this.renderer.render(this.scene, this.camera.camera)
-    this.updateFps()
-    this.debugHud.update(this.buildSnapshot())
-
-    requestAnimationFrame(this.tick)
+  private handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.stepper.reset()
+      this.lastFrameAt = null
+      this.input.clear()
+    }
   }
 
   private updateFps(): void {
