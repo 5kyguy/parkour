@@ -4,11 +4,16 @@ logs
 yarn-debug.log*
 yarn-error.log*
 
-yarn.lock
 node_modules
 dist
 dist-ssr
 *.local
+
+# Local credentials and non-Yarn package-manager artifacts
+.env
+.env.*
+!.env.example
+package-lock.json
 
 # Editor directories and files
 .cursor/rules/*

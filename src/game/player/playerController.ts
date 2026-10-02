@@ -1,6 +1,6 @@
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Scene, Vector3 } from 'three'
 import { PHYSICS, PLAYER } from '../constants'
-import type { AnimationDebugSnapshot, MovementState, PlayerSnapshot } from '../types'
+import type { MovementState, PlayerSnapshot } from '../types'
 import type { WorldInteractionProfile, WorldSurface } from '../world/worldTypes'
 import {
   probeClimbStart,
@@ -9,8 +9,6 @@ import {
   probeWallRun,
   type WorldTraversalData,
 } from '../world/traversalQueries'
-import { AnimationController } from './animationController'
-import { MichaelRig } from './michaelRig'
 
 type UpdateArgs = {
   deltaTime: number
@@ -32,16 +30,7 @@ export class PlayerController {
   private readonly root = new Group()
   private readonly proxyRoot = new Group()
   private readonly velocity = new Vector3()
-  private readonly prevVelocity = new Vector3()
   private readonly heading = new Vector3(0, 0, 1)
-  private readonly animationController = new AnimationController()
-  private readonly animationDebug: AnimationDebugSnapshot = {
-    desiredClip: 'idle',
-    activeClip: 'idle',
-    usedFallback: false,
-    fallbackReason: null,
-    missingClipCount: 0,
-  }
 
   private grounded = false
   private lastGroundedAt = -1
@@ -75,11 +64,9 @@ export class PlayerController {
     tags: [],
     hint: 'none',
   }
-  private readonly michaelRig: MichaelRig
 
   constructor(scene: Scene, spawnPoint: Vector3) {
-    const { tieNode, badgeNode, visualNodes } = this.createMichaelProxy()
-    this.michaelRig = new MichaelRig(this.root, visualNodes, tieNode, badgeNode)
+    this.createFallbackProxy()
     this.root.position.copy(spawnPoint)
     scene.add(this.root)
   }
@@ -108,7 +95,6 @@ export class PlayerController {
       this.lastGroundedAt = now
       this.transitionNote = 'respawn'
       this.interactionKind = 'respawn'
-      this.updateVisualState(deltaTime)
       return
     }
 
@@ -133,35 +119,30 @@ export class PlayerController {
       this.integrateVault(deltaTime, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'climb') {
       this.integrateClimb(deltaTime, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'wallRun') {
       this.integrateWallRun(deltaTime, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'slide') {
       this.integrateSlide(deltaTime, input, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-      this.updateVisualState(deltaTime)
       return
     }
     if (this.state === 'roll') {
       this.integrateRoll(deltaTime, resolveCollision, resolveSurface, now, input)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-      this.updateVisualState(deltaTime)
       return
     }
 
@@ -178,7 +159,6 @@ export class PlayerController {
         this.interactionKind = `vault:${this.interactionProfile.archetype}`
         this.updateHeading()
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-        this.updateVisualState(deltaTime)
         return
       }
       if (leapOk && this.canJump(now)) {
@@ -191,7 +171,6 @@ export class PlayerController {
         this.interactionKind = `climb:${this.interactionProfile.archetype}`
         this.updateHeading()
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-        this.updateVisualState(deltaTime)
         return
       } else if (this.canJump(now)) {
         this.beginJump(now)
@@ -221,7 +200,6 @@ export class PlayerController {
         this.integrateWallRun(deltaTime, resolveCollision, resolveSurface, now)
         this.updateHeading()
         this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-        this.updateVisualState(deltaTime)
         return
       }
     }
@@ -234,7 +212,6 @@ export class PlayerController {
       this.integrateSlide(deltaTime, input, resolveCollision, resolveSurface, now)
       this.updateHeading()
       this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-      this.updateVisualState(deltaTime)
       return
     }
 
@@ -260,7 +237,6 @@ export class PlayerController {
 
     this.updateHeading()
     this.syncBaseStateFromFlags(sprinting, input, deltaTime)
-    this.updateVisualState(deltaTime)
   }
 
   public getSnapshot(): PlayerSnapshot {
@@ -278,7 +254,6 @@ export class PlayerController {
       interactionKind: this.interactionKind,
       surfaceMaterial: this.interactionProfile.material,
       nearbyArchetype: this.interactionProfile.archetype,
-      animation: { ...this.animationDebug },
       coyoteRemaining,
       landingGraceRemaining: this.landingGraceTimer,
       jumpBufferAge: this.lastJumpBufferAge,
@@ -621,40 +596,9 @@ export class PlayerController {
     this.interactionKind = `${this.state}:${this.interactionProfile.hint}`
   }
 
-  private updateVisualState(deltaTime: number): void {
-    const acceleration = this.velocity.clone().sub(this.prevVelocity).multiplyScalar(1 / Math.max(deltaTime, 1 / 240))
-    this.prevVelocity.copy(this.velocity)
-    const planarSpeed = Math.hypot(this.velocity.x, this.velocity.z)
-    const debug = this.animationController.update(
-      {
-        deltaTime,
-        state: this.state,
-        grounded: this.grounded,
-        planarSpeed,
-        verticalSpeed: this.velocity.y,
-        interactionKind: this.interactionKind,
-      },
-      this.michaelRig,
-    )
-    this.animationDebug.desiredClip = debug.desiredClip
-    this.animationDebug.activeClip = debug.activeClip ?? 'none'
-    this.animationDebug.usedFallback = debug.usedFallback
-    this.animationDebug.fallbackReason = debug.fallbackReason
-    this.animationDebug.missingClipCount = this.michaelRig.getMissingClips().length
-
-    this.michaelRig.update(deltaTime)
-    this.michaelRig.updateSecondaryMotion({
-      deltaTime,
-      planarSpeed,
-      verticalSpeed: this.velocity.y,
-      acceleration,
-    })
-  }
-
   private respawn(position: Vector3): void {
     this.root.position.copy(position)
     this.velocity.set(0, 0, 0)
-    this.prevVelocity.set(0, 0, 0)
     this.grounded = true
     this.state = 'idle'
     this.landingTimer = 0
@@ -670,7 +614,7 @@ export class PlayerController {
     return this.root.position.y - PLAYER.HALF_HEIGHT
   }
 
-  private createMichaelProxy(): { tieNode: Mesh; badgeNode: Mesh; visualNodes: Group[] } {
+  private createFallbackProxy(): void {
     const shirt = new MeshStandardMaterial({ color: '#D4D0C8' })
     const pants = new MeshStandardMaterial({ color: '#3A3A3A' })
     const tie = new MeshStandardMaterial({ color: '#2B3A67' })
@@ -708,10 +652,5 @@ export class PlayerController {
     this.proxyRoot.add(badgeMesh)
 
     this.root.add(this.proxyRoot)
-    return {
-      tieNode: tieMesh,
-      badgeNode: badgeMesh,
-      visualNodes: [this.proxyRoot],
-    }
   }
 }

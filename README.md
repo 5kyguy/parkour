@@ -6,6 +6,21 @@
 
 Michael Scott gets isekai'd into 15th-century Florence and explores the city with, you guessed it, parkour. He might beat Ezio Auditore in parkour!
 
+## Rebuild checkpoint
+
+The imported character models, animation clips, and asset-acquisition tooling have
+been retired. The existing city and movement prototype remain runnable with the
+original static block character as a reference, not as the new implementation.
+
+The rebuild will use a stylized, code-generated character and environment, with
+animations authored in code rather than a Blender/Mixamo/GLB pipeline. Concept and
+architecture come next, before implementation. The specification, preview,
+and development journey below describe the legacy prototype.
+
+Use `yarn install`, `yarn dev`, and `yarn build`. Commit `yarn.lock` for reproducible
+installs. Playwright is retained for browser testing; no asset-service account or
+environment variables are required to run the game.
+
 ## Development Journey
 
 ### April 6, 2026

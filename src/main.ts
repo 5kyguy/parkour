@@ -1,7 +1,7 @@
 import './styles/main.css'
 import { GameApp } from './game/gameApp'
 
-const builderIconUrl = new URL('../assets/profile.jpg', import.meta.url).href
+const builderIconUrl = new URL('../assets/profile.png', import.meta.url).href
 const appRoot = document.querySelector<HTMLDivElement>('#app')
 
 if (!appRoot) {

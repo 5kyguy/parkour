@@ -33,7 +33,6 @@ export type PlayerSnapshot = {
   interactionKind: string
   surfaceMaterial: MaterialKind
   nearbyArchetype: ModuleArchetype | 'none'
-  animation: AnimationDebugSnapshot
   /** Seconds remaining for coyote jump after leaving ground. */
   coyoteRemaining: number
   /** Seconds remaining in landing grace window. */
@@ -60,12 +59,4 @@ export type EnvironmentSnapshot = {
   surfaceTags: TraversalTag[]
   nearbyTags: TraversalTag[]
   spawnLabel: string
-}
-
-export type AnimationDebugSnapshot = {
-  desiredClip: string
-  activeClip: string
-  usedFallback: boolean
-  fallbackReason: string | null
-  missingClipCount: number
 }
