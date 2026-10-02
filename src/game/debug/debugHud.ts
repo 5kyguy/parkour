@@ -38,7 +38,7 @@ export class DebugHud {
       player.jumpBufferAge === null ? '—' : `${player.jumpBufferAge.toFixed(3)}s`
 
     this.content.innerHTML = [
-      '<h2>Legacy Prototype</h2>',
+      '<h2>Movement debug</h2>',
       `<div><span>FPS</span><strong>${fps.toFixed(1)}</strong></div>`,
       `<div><span>State</span><strong>${player.state}</strong></div>`,
       `<div><span>Note</span><strong>${player.transitionNote || '—'}</strong></div>`,
@@ -52,7 +52,7 @@ export class DebugHud {
       `<div><span>Coyote</span><strong>${player.coyoteRemaining.toFixed(3)}s</strong></div>`,
       `<div><span>Land grace</span><strong>${player.landingGraceRemaining.toFixed(3)}s</strong></div>`,
       `<div><span>Jump buffer</span><strong>${jumpBuf}</strong></div>`,
-      '<div><span>Character</span><strong>Static block proxy</strong></div>',
+      '<div><span>Character</span><strong>Procedural figure</strong></div>',
       `<div><span>Surface</span><strong>${environment.surfaceLabel}</strong></div>`,
       `<div><span>Layer</span><strong>${environment.layer}</strong></div>`,
       `<div><span>Route</span><strong>${environment.routeKind}</strong></div>`,
@@ -64,7 +64,7 @@ export class DebugHud {
       `<div><span>Respawn</span><strong>${environment.spawnLabel}</strong></div>`,
       `<div><span>Pos</span><strong>x:${player.position.x.toFixed(1)} y:${player.position.y.toFixed(1)} z:${player.position.z.toFixed(1)}</strong></div>`,
       `<div><span>Vel</span><strong>x:${player.velocity.x.toFixed(1)} y:${player.velocity.y.toFixed(1)} z:${player.velocity.z.toFixed(1)}</strong></div>`,
-      '<p>Legacy reference only; imported animations have been retired. Play: click to lock mouse. WASD, Shift sprint, Space jump/vault/climb, S/↓ slide or roll cue, R nearest respawn. Movement gym at southwest ~x-118 z-118.</p>',
+      '<p>Play: click to lock mouse. WASD, Shift sprint, Space jump/vault/climb, S/↓ slide or roll cue, R nearest respawn. Movement gym at southwest ~x-118 z-118.</p>',
     ].join('')
   }
 

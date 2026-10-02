@@ -1,5 +1,6 @@
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Scene, Vector3 } from 'three'
+import { Group, Scene, Vector3 } from 'three'
 import { PHYSICS, PLAYER } from '../constants'
+import { Character } from '../character/character'
 import type { MovementState, PlayerSnapshot } from '../types'
 import type { WorldInteractionProfile, WorldSurface } from '../world/worldTypes'
 import {
@@ -28,7 +29,7 @@ type UpdateArgs = {
 
 export class PlayerController {
   private readonly root = new Group()
-  private readonly proxyRoot = new Group()
+  private readonly character: Character
   private readonly velocity = new Vector3()
   private readonly heading = new Vector3(0, 0, 1)
 
@@ -66,9 +67,14 @@ export class PlayerController {
   }
 
   constructor(scene: Scene, spawnPoint: Vector3) {
-    this.createFallbackProxy()
     this.root.position.copy(spawnPoint)
+    this.character = new Character(this.root)
     scene.add(this.root)
+  }
+
+  public updateVisual(deltaTime: number, now: number): void {
+    const speed = Math.hypot(this.velocity.x, this.velocity.z)
+    this.character.update(deltaTime, now, this.root.position, this.state, this.grounded, speed, this.velocity.y)
   }
 
   public update(args: UpdateArgs): void {
@@ -598,6 +604,7 @@ export class PlayerController {
 
   private respawn(position: Vector3): void {
     this.root.position.copy(position)
+    this.character.reset(position)
     this.velocity.set(0, 0, 0)
     this.grounded = true
     this.state = 'idle'
@@ -612,45 +619,5 @@ export class PlayerController {
 
   private getFootY(): number {
     return this.root.position.y - PLAYER.HALF_HEIGHT
-  }
-
-  private createFallbackProxy(): void {
-    const shirt = new MeshStandardMaterial({ color: '#D4D0C8' })
-    const pants = new MeshStandardMaterial({ color: '#3A3A3A' })
-    const tie = new MeshStandardMaterial({ color: '#2B3A67' })
-    const badge = new MeshStandardMaterial({ color: '#EDE6C9' })
-    const skin = new MeshStandardMaterial({ color: '#D7AE8A' })
-
-    const legs = new Mesh(new BoxGeometry(0.58, 0.9, 0.3), pants)
-    legs.position.y = -0.45
-    this.proxyRoot.add(legs)
-
-    const torso = new Mesh(new BoxGeometry(0.82, 0.76, 0.4), shirt)
-    torso.position.y = 0.08
-    this.proxyRoot.add(torso)
-
-    const shoulders = new Mesh(new BoxGeometry(0.92, 0.18, 0.34), shirt)
-    shoulders.position.y = 0.36
-    this.proxyRoot.add(shoulders)
-
-    const head = new Mesh(new BoxGeometry(0.42, 0.42, 0.4), skin)
-    head.position.y = 0.78
-    this.proxyRoot.add(head)
-
-    for (const side of [-1, 1]) {
-      const arm = new Mesh(new BoxGeometry(0.18, 0.68, 0.18), shirt)
-      arm.position.set(side * 0.4, -0.04, 0)
-      this.proxyRoot.add(arm)
-    }
-
-    const tieMesh = new Mesh(new BoxGeometry(0.12, 0.5, 0.04), tie)
-    tieMesh.position.set(0, 0.02, 0.22)
-    this.proxyRoot.add(tieMesh)
-
-    const badgeMesh = new Mesh(new BoxGeometry(0.16, 0.22, 0.03), badge)
-    badgeMesh.position.set(0.18, -0.02, 0.23)
-    this.proxyRoot.add(badgeMesh)
-
-    this.root.add(this.proxyRoot)
   }
 }

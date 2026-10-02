@@ -111,6 +111,7 @@ export class GameApp {
       resolveCollision: (position, velocity) => this.worldBuilder.resolvePlayerCollision(position, velocity),
       resolveInteraction: (position) => this.worldBuilder.getInteractionProfile(position),
     })
+    this.player.updateVisual(deltaTime, now)
 
     const playerSnapshot = this.player.getSnapshot()
     this.camera.update(playerSnapshot)
