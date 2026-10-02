@@ -76,9 +76,9 @@ export type BuildingWing = {
 export type RoofStyle = 'flat' | 'pitched'
 
 /**
- * - plain: single box mass (legacy).
+ * - plain: single box mass.
  * - rusticated: stone base course + upper plaster/brick.
- * - renaissance: cornice band, pilaster strips, arched ground-floor hints (15th-c. Florentine civic look).
+ * - renaissance: cornice band, pilaster strips, arched ground-floor hints (Florentine civic look).
  */
 export type FacadeStyle = 'plain' | 'rusticated' | 'renaissance'
 

@@ -44,8 +44,8 @@ export const PHYSICS = {
 } as const
 
 export const CAMERA = {
-  DISTANCE: 10,
-  HEIGHT: 4,
+  DISTANCE: 7.5,
+  HEIGHT: 2.5,
   FOV: 70,
   LOOK_AHEAD: 3,
   FOLLOW_LERP: 0.1,

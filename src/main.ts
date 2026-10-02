@@ -26,10 +26,10 @@ const homepage = document.createElement('section')
 homepage.className = 'homepage-overlay'
 homepage.innerHTML = [
   '<div class="homepage-panel">',
-  '<p class="homepage-kicker">Parkour Vibe Jam 2026</p>',
+  '<p class="homepage-kicker">A rooftop playground</p>',
   '<h1>Michael in Florence</h1>',
   '<p class="homepage-subtitle">An accidental office manager. A city of rooftops. A very confident lack of training.</p>',
-  '<p class="homepage-copy">One moment Michael Scott was in a Dunder Mifflin conference room. The next, he woke up in 15th-century Florence wearing his polo, badge, and an unshakable belief that he was born to free-run.</p>',
+  '<p class="homepage-copy">Michael Scott finds himself in Florence with his office clothes, his ID badge, and an unshakable belief that he was born to free-run. Find a route through the streets and see where the rooftops take you.</p>',
   '<button type="button" class="homepage-play">Play</button>',
   '<p class="homepage-controls">WASD / Arrows: Move · Space: Jump · Shift: Sprint · R: Respawn</p>',
   '</div>',
