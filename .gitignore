@@ -9,6 +9,10 @@ dist
 dist-ssr
 *.local
 
+# Yarn 4: keep the checked-in release, ignore the local cache
+.yarn/*
+!.yarn/releases
+
 # Local credentials and non-Yarn package-manager artifacts
 .env
 .env.*

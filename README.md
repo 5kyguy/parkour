@@ -29,7 +29,7 @@ The stack is TypeScript, Three.js, and Vite. Use Yarn for dependencies and scrip
 `yarn.lock` records the dependency versions.
 
 ```sh
-yarn install --frozen-lockfile
+yarn install --immutable
 yarn dev
 ```
 
