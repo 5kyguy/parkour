@@ -1,48 +1,48 @@
 # Parkour
 
-<p align="center">
-  <img src="docs/parkour.gif" alt="Parkour gameplay preview" />
-</p>
+A third-person browser parkour game set in a stylized Florence. Michael Scott finds himself among terracotta rooftops, market stalls, and narrow alleys, convinced that an office manager can become a free-runner.
 
-Michael Scott gets isekai'd into 15th-century Florence and explores the city with, you guessed it, parkour. He might beat Ezio Auditore in parkour!
+The player will explore a compact district, discover routes, and chain moves from the street to the rooftops. Responsive movement, expressive animation, and quick recovery from a missed jump will make experimenting feel good.
 
-## Rebuild checkpoint
+## The game I'm building
 
-The imported character models, animation clips, and asset-acquisition tooling have
-been retired. The existing city and movement prototype remain runnable with the
-original static block character as a reference, not as the new implementation.
+- Running and sprinting that carry momentum through jumps, vaults, and landings.
+- Wall-runs, wall-jumps, ledge grabs, climbing, slides, and landing rolls.
+- Connected rooftop routes, courtyards, and street-level ways to climb back up.
+- A low-poly office worker with articulated limbs, a fluttering tie, and a bouncing badge.
+- Warm lighting, readable surfaces, landing dust, and synthesized movement sounds.
+- A mouse-controlled follow camera and keyboard controls for desktop browsers.
 
-The rebuild will use a stylized, code-generated character and environment, with
-animations authored in code rather than a Blender/Mixamo/GLB pipeline. Concept and
-architecture come next, before implementation. The specification, preview,
-and development journey below describe the legacy prototype.
+Character geometry, scenery, material patterns, animation, and game audio will be
+generated in code. The game will run client-side and ship as a static website.
 
-Use `yarn install`, `yarn dev`, and `yarn build`. Commit `yarn.lock` for reproducible
-installs. Playwright is retained for browser testing; no asset-service account or
-environment variables are required to run the game.
+## Design documents
 
-## Development Journey
+- [Game concept](docs/concept.md): the experience, movement, world, art direction, and intended controls.
+- [Architecture](docs/architecture.md): the planned systems, resource generation, simulation, and verification.
 
-### April 6, 2026
+These documents define the implementation target and its acceptance criteria.
 
-- Created [spec v3.0](docs/spec_v3.md) using Minimax2.7 on OpenClaw, 3 iterations.
-- v0.0.1 and homepage overlay.
+## Development
 
-### April 7, 2026
+The stack is TypeScript, Three.js, and Vite. Use Yarn for dependencies and scripts;
+`yarn.lock` records the dependency versions.
 
-- v0.0.2: Added initial city slice of 15th-century Florence (Inspired by Assassin's Creed 2) and Michael proxy body.
-- v0.0.3: Michael gets the movements. Some are buggy.
+```sh
+yarn install --frozen-lockfile
+yarn dev
+```
 
-### April 15-20, 2026
+Build and serve the production output:
 
-- v0.0.4: Added Michael's rig and animations.
-  - Got Michael's rigged body from [RenderPeople](https://renderpeople.com/free-3d-people/) free tier models.
-  - Used [Maximo](https://www.mixamo.com) to download some basic actions for Michael.
-  - Whipped out [Siddharth's Blender MCP](https://github.com/ahujasid/blender-mcp).
-  - Not perfect, many animations are missing, the ones present are missing some key frames. But it's a start.
+```sh
+yarn build
+yarn preview
+```
 
-### April 22, 2026
+`yarn build` runs the TypeScript compiler and writes the browser build to `dist/`.
+Playwright is available for browser verification.
 
-- fix: Make the Debug HUD a toggleable option, fix camera follow.
-- Getting the feeling this rig and body won't work for the game. Need to find a better way to get a more accurate rig and body.
-  - PS: Andre got me jealous, his is much better looking. Check it out [here](https://x.com/andreeliasdev/status/2046670471760949553). Need to check out [Tripo](https://x.com/tripoai).
+## License
+
+[MIT](LICENSE).
