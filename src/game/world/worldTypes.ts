@@ -32,6 +32,7 @@ export type ModuleArchetype =
   | 'palazzo'
   | 'landmark'
   | 'marketStall'
+  | 'vaultBarrier'
   | 'crateCluster'
   | 'barrelStack'
   | 'archway'
@@ -102,7 +103,7 @@ export type PropModuleDefinition = {
   kind: 'prop'
   id: string
   label: string
-  archetype: 'marketStall' | 'crateCluster' | 'barrelStack' | 'archway'
+  archetype: 'marketStall' | 'vaultBarrier' | 'crateCluster' | 'barrelStack' | 'archway'
   position: Vec3
   size: Vec3
   material: MaterialKind

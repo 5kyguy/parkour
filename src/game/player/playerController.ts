@@ -1,6 +1,7 @@
 import { Group, Scene, Vector3 } from 'three'
 import { PHYSICS, PLAYER } from '../constants.ts'
 import { Character } from '../character/character.ts'
+import { traversalPosition, type Traversal } from '../movement/motor.ts'
 import type { MovementState, PlayerSnapshot } from '../types'
 import type { WorldInteractionProfile, WorldSurface } from '../world/worldTypes'
 import {
@@ -8,6 +9,7 @@ import {
   probeRooftopLeap,
   probeVaultAhead,
   probeWallRun,
+  type VaultProbe,
   type WorldTraversalData,
 } from '../world/traversalQueries.ts'
 
@@ -41,7 +43,7 @@ export class PlayerController {
   private landingGraceTimer = 0
   private transitionNote = ''
 
-  private vaultTimer = 0
+  private vaultAction: Traversal | null = null
   private climbRoofY = 0
   private climbSnapX = 0
   private climbSnapZ = 0
@@ -162,7 +164,7 @@ export class PlayerController {
 
       if (vault) {
         args.acceptJump()
-        this.beginVault(vault.exitForwardX, vault.exitForwardZ)
+        this.beginVault(vault)
         this.transitionNote = `vault:${vault.moduleId}`
         this.interactionKind = `vault:${this.interactionProfile.archetype}`
         this.updateHeading()
@@ -300,14 +302,26 @@ export class PlayerController {
     this.state = 'leap'
   }
 
-  private beginVault(ex: number, ez: number): void {
-    const len = Math.hypot(ex, ez) || 1
-    this.velocity.x = (ex / len) * PHYSICS.VAULT_FORWARD_SPEED
-    this.velocity.z = (ez / len) * PHYSICS.VAULT_FORWARD_SPEED
-    this.velocity.y = PHYSICS.VAULT_UP_SPEED
+  private beginVault(vault: VaultProbe): void {
+    const speed = Math.max(PHYSICS.RUN_SPEED, Math.hypot(this.velocity.x, this.velocity.z))
+    const start = { x: this.root.position.x, y: this.root.position.y, z: this.root.position.z }
+    const end = { x: vault.exitX, y: vault.landingY + PLAYER.HALF_HEIGHT, z: vault.exitZ }
+    const span = Math.hypot(end.x - start.x, end.z - start.z)
+    this.vaultAction = {
+      kind: 'vault',
+      start,
+      end,
+      contact: { x: start.x, y: vault.obstacleY, z: start.z },
+      peak: Math.max(start.y, vault.obstacleY + PLAYER.HALF_HEIGHT + 0.16),
+      progress: 0,
+      duration: Math.max(PHYSICS.VAULT_DURATION, span / PHYSICS.VAULT_FORWARD_SPEED + 0.25),
+      direction: { x: vault.exitForwardX, z: vault.exitForwardZ },
+      speed,
+    }
+    this.velocity.set(0, 0, 0)
     this.grounded = false
+    this.lastGroundedAt = -Infinity
     this.state = 'vault'
-    this.vaultTimer = PHYSICS.VAULT_DURATION
   }
 
   private beginClimb(climb: { roofY: number; snapX: number; snapZ: number }): void {
@@ -357,19 +371,35 @@ export class PlayerController {
     resolveSurface: UpdateArgs['resolveSurface'],
     now: number,
   ): void {
-    this.vaultTimer -= deltaTime
-    this.velocity.y += PHYSICS.GRAVITY * 0.65 * deltaTime
-    this.root.position.addScaledVector(this.velocity, deltaTime)
-    resolveCollision(this.root.position, this.velocity)
-    this.resolveGroundContact(now, resolveSurface)
-
-    if (this.grounded) {
-      this.state = 'run'
-      this.vaultTimer = 0
+    const action = this.vaultAction
+    if (!action) {
+      this.state = 'fall'
       return
     }
-    if (this.vaultTimer <= 0) {
+    action.progress = Math.min(1, action.progress + deltaTime / action.duration)
+    const next = traversalPosition(action, action.progress)
+    this.velocity.set(
+      (next.x - this.root.position.x) / deltaTime,
+      (next.y - this.root.position.y) / deltaTime,
+      (next.z - this.root.position.z) / deltaTime,
+    )
+    this.root.position.set(next.x, next.y, next.z)
+    resolveCollision(this.root.position, this.velocity)
+    if (this.root.position.distanceToSquared(new Vector3(next.x, next.y, next.z)) > 0.01) {
+      this.vaultAction = null
       this.state = 'fall'
+      this.resolveGroundContact(now, resolveSurface)
+      return
+    }
+    if (action.progress >= 1) {
+      this.vaultAction = null
+      this.resolveGroundContact(now, resolveSurface)
+      if (this.grounded) {
+        this.velocity.set(action.direction.x * action.speed, 0, action.direction.z * action.speed)
+        this.state = 'run'
+      } else {
+        this.state = 'fall'
+      }
     }
   }
 
@@ -618,7 +648,7 @@ export class PlayerController {
     this.grounded = true
     this.state = 'idle'
     this.landingTimer = 0
-    this.vaultTimer = 0
+    this.vaultAction = null
     this.wallRunTimer = 0
     this.slideTimer = 0
     this.rollTimer = 0

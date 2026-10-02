@@ -10,9 +10,12 @@ export type WorldTraversalData = {
 export type VaultProbe = {
   moduleId: string
   label: string
-  /** World Y of the vault landing (walkable top). */
+  /** Obstacle top and supported far-side landing height. */
+  obstacleY: number
   landingY: number
-  /** Horizontal direction away from obstacle after vault (unit XZ). */
+  exitX: number
+  exitZ: number
+  /** Horizontal approach direction across the obstacle (unit XZ). */
   exitForwardX: number
   exitForwardZ: number
 }
@@ -101,11 +104,33 @@ export function probeVaultAhead(
       continue
     }
 
-    const landingY = getVaultLandingY(mod.id, data.surfaces)
-    if (landingY <= footY + 0.05) {
+    const obstacleY = getVaultLandingY(mod.id, data.surfaces)
+    if (obstacleY <= footY + 0.05 || obstacleY > footY + 1.15) {
       continue
     }
-    if (footY < landingY - 2.8 || footY > landingY - 0.12) {
+    const alongX = Math.abs(fx) > Math.abs(fz)
+    const main = alongX ? fx : fz
+    if (Math.abs(main) < 0.8) {
+      continue
+    }
+    const edge = alongX
+      ? main > 0 ? mod.bounds.maxX : mod.bounds.minX
+      : main > 0 ? mod.bounds.maxZ : mod.bounds.minZ
+    const crossing = (edge - (alongX ? position.x : position.z)) / main
+    if (crossing < 0 || crossing > 4) {
+      continue
+    }
+    const exitDistance = crossing + PLAYER.WIDTH / 2 + 0.35
+    const exitX = position.x + fx * exitDistance
+    const exitZ = position.z + fz * exitDistance
+    const landing = data.surfaces
+      .filter((surface) =>
+        surface.id !== `${mod.id}:top` &&
+        isPointInsideBoundsXZ(exitX, exitZ, surface.bounds) &&
+        surface.y <= footY + 0.3 && surface.y >= footY - 2,
+      )
+      .sort((a, b) => b.y - a.y)[0]
+    if (!landing) {
       continue
     }
 
@@ -114,7 +139,10 @@ export function probeVaultAhead(
       best = {
         moduleId: mod.id,
         label: mod.label,
-        landingY,
+        obstacleY,
+        landingY: landing.y,
+        exitX,
+        exitZ,
         exitForwardX: fx,
         exitForwardZ: fz,
       }

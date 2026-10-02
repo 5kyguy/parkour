@@ -4,7 +4,10 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  InstancedMesh,
   Mesh,
+  MeshStandardMaterial,
+  Object3D,
   PlaneGeometry,
   Scene,
   SphereGeometry,
@@ -18,6 +21,7 @@ import type {
   BuildingModuleDefinition,
   CollisionBox,
   FacadeStyle,
+  GroundModuleDefinition,
   InteractionHint,
   MaterialKind,
   PropModuleDefinition,
@@ -52,6 +56,7 @@ type BuildingPart = {
 
 export class WorldBuilder {
   private readonly materialCache = new Map<MaterialKind, ReturnType<typeof createWorldMaterial>>()
+  private readonly windowMaterial = new MeshStandardMaterial({ color: '#354c50', roughness: 0.55 })
   private readonly surfaces: WorldSurface[] = []
   private readonly moduleRuntime: WorldModuleRuntime[] = []
   private readonly collisionBoxes: CollisionBox[] = []
@@ -67,11 +72,11 @@ export class WorldBuilder {
 
     scene.background = new Color('#87CEEB')
 
-    const hemi = new HemisphereLight('#87CEEB', '#C45C3E', 0.35)
+    const hemi = new HemisphereLight('#bad9e0', '#c18f72', 0.8)
     scene.add(hemi)
 
-    const sun = new DirectionalLight('#F4C430', 1.1)
-    sun.position.set(-60, 120, 40)
+    const sun = new DirectionalLight('#ffe0a3', 1.35)
+    sun.position.set(-60, 120, -40)
     scene.add(sun)
 
     const ground = new Mesh(
@@ -110,8 +115,7 @@ export class WorldBuilder {
 
     const preferredSpawn =
       this.spawnPoints.find((spawnPoint) => spawnPoint.id === district.primarySpawnId) ?? this.spawnPoints[0] ?? null
-    const randomSpawn = this.spawnPoints[Math.floor(Math.random() * Math.max(this.spawnPoints.length, 1))] ?? null
-    this.activeSpawnPoint = randomSpawn ?? preferredSpawn
+    this.activeSpawnPoint = preferredSpawn
   }
 
   public getInitialSpawnPoint(): Vector3 {
@@ -246,6 +250,9 @@ export class WorldBuilder {
         module.position.z,
       )
       scene.add(mesh)
+      if (module.id === 'movement-gym-pad') {
+        this.addCourtyardStones(scene, module)
+      }
 
       const bounds = this.boundsFromRect(module.position.x, module.position.z, module.footprint.width, module.footprint.depth)
       this.surfaces.push({
@@ -534,10 +541,30 @@ export class WorldBuilder {
     for (const feature of module.features) {
       if (feature === 'windowSills') {
         const sillGeometry = new BoxGeometry(w * 0.22, 0.16, 0.35)
+        const paneGeometry = new BoxGeometry(w * 0.17, 1.08, 0.055)
+        const shutterGeometry = new BoxGeometry(0.14, 1.08, 0.07)
         for (const y of [2.2, 3.9]) {
           const frontSill = new Mesh(sillGeometry, this.getMaterial('stone'))
           frontSill.position.set(cx, y, cz + d / 2 + 0.1)
           group.add(frontSill)
+
+          const frontPane = new Mesh(paneGeometry, this.windowMaterial)
+          frontPane.position.set(cx, y + 0.57, cz + d / 2 + 0.055)
+          group.add(frontPane)
+
+          const backPane = new Mesh(paneGeometry, this.windowMaterial)
+          backPane.position.set(cx, y + 0.57, cz - d / 2 - 0.055)
+          group.add(backPane)
+
+          for (const side of [-1, 1]) {
+            const offset = side * w * 0.105
+            const frontShutter = new Mesh(shutterGeometry, this.getMaterial('wood'))
+            frontShutter.position.set(cx + offset, y + 0.57, cz + d / 2 + 0.065)
+            group.add(frontShutter)
+            const backShutter = new Mesh(shutterGeometry, this.getMaterial('wood'))
+            backShutter.position.set(cx + offset, y + 0.57, cz - d / 2 - 0.065)
+            group.add(backShutter)
+          }
 
           const backSill = new Mesh(sillGeometry, this.getMaterial('stone'))
           backSill.position.set(cx, y, cz - d / 2 - 0.1)
@@ -574,11 +601,64 @@ export class WorldBuilder {
     }
   }
 
+  private addCourtyardStones(scene: Scene, module: GroundModuleDefinition): void {
+    const spacing = 1.5
+    const columns = Math.floor(module.footprint.width / spacing)
+    const rows = Math.floor(module.footprint.depth / spacing)
+    const stones = new InstancedMesh(
+      new BoxGeometry(1.34, 0.016, 1.18),
+      new MeshStandardMaterial({ color: '#ffffff', roughness: 1 }),
+      columns * rows,
+    )
+    stones.name = 'courtyard-paving'
+    const tile = new Object3D()
+    const shades = ['#c9b79c', '#d1bea2', '#bdaa8f', '#d4c1a6']
+    for (let z = 0; z < rows; z += 1) {
+      for (let x = 0; x < columns; x += 1) {
+        const variation = ((x * 73856093) ^ (z * 19349663)) >>> 0
+        tile.position.set(
+          module.position.x - module.footprint.width / 2 + (x + 0.5) * spacing,
+          module.position.y + 0.008,
+          module.position.z - module.footprint.depth / 2 + (z + 0.5) * spacing,
+        )
+        tile.rotation.y = ((variation % 5) - 2) * 0.012
+        tile.updateMatrix()
+        const index = z * columns + x
+        stones.setMatrixAt(index, tile.matrix)
+        stones.setColorAt(index, new Color(shades[variation % shades.length]))
+      }
+    }
+    stones.instanceMatrix.needsUpdate = true
+    if (stones.instanceColor) stones.instanceColor.needsUpdate = true
+    scene.add(stones)
+  }
+
   private buildProp(scene: Scene, module: PropModuleDefinition): void {
     const group = new Group()
     group.position.set(module.position.x, module.position.y, module.position.z)
 
     switch (module.archetype) {
+      case 'vaultBarrier': {
+        const body = new Mesh(
+          new BoxGeometry(module.size.x, module.size.y, module.size.z),
+          this.getMaterial(module.material),
+        )
+        body.castShadow = true
+        group.add(body)
+        // Details stay within the collision volume so the visible top matches the probe.
+        const cap = new Mesh(
+          new BoxGeometry(module.size.x - 0.06, 0.1, module.size.z - 0.04),
+          this.getMaterial('plazaStone'),
+        )
+        cap.position.y = module.size.y / 2 - 0.05
+        group.add(cap)
+        for (let x = -module.size.x / 2 + 0.6; x < module.size.x / 2; x += 1.2) {
+          const joint = new Mesh(new BoxGeometry(0.05, module.size.y - 0.2, 0.012), this.getMaterial('streetStone'))
+          joint.position.set(x, -0.04, module.size.z / 2)
+          group.add(joint)
+        }
+        break
+      }
       case 'marketStall': {
         const tabletop = new Mesh(
           new BoxGeometry(module.size.x, 0.24, module.size.z),
@@ -681,17 +761,20 @@ export class WorldBuilder {
 
   public getInteractionProfile(position: Vector3): WorldInteractionProfile {
     let nearest: WorldModuleRuntime | null = null
-    let bestDistance = Number.POSITIVE_INFINITY
+    let bestScore = Number.POSITIVE_INFINITY
     for (const module of this.moduleRuntime) {
       const distance = this.distanceToBounds(position.x, position.z, module.bounds)
       if (distance > 5.5) {
         continue
       }
-      if (distance >= bestDistance) {
+      // A large ground overlay must not hide a nearby vault or climbing surface.
+      const groundOverlay = module.archetype === 'plaza' || module.archetype === 'street' || module.archetype === 'alley'
+      const score = distance + (groundOverlay ? 3 : 0)
+      if (score >= bestScore) {
         continue
       }
       nearest = module
-      bestDistance = distance
+      bestScore = score
     }
 
     if (!nearest) {
@@ -720,7 +803,7 @@ export class WorldBuilder {
       return 'slideArchway'
     }
     if (module.tags.includes('vaultable')) {
-      if (module.archetype === 'marketStall' || module.archetype === 'crateCluster' || module.archetype === 'barrelStack') {
+      if (module.archetype === 'marketStall' || module.archetype === 'vaultBarrier' || module.archetype === 'crateCluster' || module.archetype === 'barrelStack') {
         return 'vaultableProp'
       }
       return 'ledgeRecovery'
@@ -760,6 +843,7 @@ export class WorldBuilder {
         })
         break
       }
+      case 'vaultBarrier':
       case 'crateCluster':
       case 'barrelStack': {
         this.addCollisionBox({

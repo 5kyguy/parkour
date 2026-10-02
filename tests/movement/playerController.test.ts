@@ -61,3 +61,35 @@ test('coyote jump works after leaving a roof and cannot be repeated in the air',
   assert.equal(accepted, 1)
   assert.ok(player.getSnapshot().verticalSpeed < jumpSpeed)
 })
+
+test('Space vaults a low solid barrier and lands beyond it with forward momentum', () => {
+  const floor: WorldSurface = { ...roof, id: 'floor', layer: 'ground', routeKind: 'ground', material: 'streetStone', bounds: { minX: -5, maxX: 5, minZ: -5, maxZ: 5 } }
+  const barrier: WorldSurface = { ...roof, id: 'barrier:top', layer: 'transition', routeKind: 'connector', material: 'stone', tags: ['vaultable'], y: 0.8, bounds: { minX: -1.5, maxX: 1.5, minZ: -0.3, maxZ: 0.3 } }
+  const module = { id: 'barrier', label: 'Low wall', archetype: 'vaultBarrier' as const, material: 'stone' as const, layer: 'transition' as const, routeKind: 'connector' as const, tags: ['vaultable' as const], bounds: barrier.bounds }
+  const player = new PlayerController(new Scene(), new Vector3(0, 0.9, -0.9))
+  const collision = (position: Vector3, velocity: Vector3): void => {
+    const foot = position.y - 0.9
+    if (foot < 0.8 && position.y + 0.9 > 0 && Math.abs(position.x) < 1.8 && Math.abs(position.z) < 0.5) {
+      position.z = position.z < 0 ? -0.5 : 0.5
+      velocity.z = 0
+    }
+  }
+  const args = {
+    ...base,
+    moveZ: 1,
+    traversal: { surfaces: [floor, barrier], modules: [module] },
+    resolveSurface: (position: Vector3, footY: number) => Math.abs(position.z) <= 0.3 && footY >= -0.4 && footY <= 2 ? barrier : floor,
+    resolveCollision: collision,
+  }
+  player.update({ ...args, now: 10, acceptJump: () => {} })
+  let accepted = 0
+  player.update({ ...args, now: 10 + 1 / 60, wantsJump: true, acceptJump: () => { accepted++ } })
+  assert.equal(accepted, 1)
+  assert.equal(player.getSnapshot().state, 'vault')
+  for (let i = 2; i < 80; i++) {
+    player.update({ ...args, now: 10 + i / 60, acceptJump: () => {} })
+  }
+  assert.ok(player.getPosition().z > 0.65, `vault exit z=${player.getPosition().z}`)
+  assert.equal(player.getSnapshot().grounded, true)
+  assert.ok(player.getSnapshot().planarSpeed > 2)
+})
