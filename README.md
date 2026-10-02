@@ -48,7 +48,9 @@ yarn preview
 ```
 
 `yarn build` runs the TypeScript compiler and writes the browser build to `dist/`.
-Playwright is available for browser verification.
+`yarn test:browser` builds and drives the courtyard route in Chromium with
+Playwright. Set `CHROMIUM_EXECUTABLE` to a local Chromium binary if the bundled
+browser is unavailable.
 
 ## License
 
