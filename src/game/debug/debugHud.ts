@@ -4,7 +4,7 @@ export class DebugHud {
   private readonly root: HTMLDivElement
   private readonly toggleButton: HTMLButtonElement
   private readonly content: HTMLDivElement
-  private expanded = true
+  private expanded = false
   private readonly onToggle?: (expanded: boolean) => void
 
   constructor(container: HTMLElement, options?: { onToggle?: (expanded: boolean) => void }) {
@@ -15,10 +15,12 @@ export class DebugHud {
     this.toggleButton = document.createElement('button')
     this.toggleButton.className = 'debug-sidebar-toggle'
     this.toggleButton.type = 'button'
-    this.toggleButton.addEventListener('click', () => {
-      this.expanded = !this.expanded
-      this.applyExpandedState()
-      this.onToggle?.(this.expanded)
+    this.toggleButton.addEventListener('click', this.toggle)
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'F3' && !event.repeat) {
+        event.preventDefault()
+        this.toggle()
+      }
     })
     this.root.appendChild(this.toggleButton)
 
@@ -72,9 +74,15 @@ export class DebugHud {
     return tags.length ? tags.join(', ') : 'none'
   }
 
+  private toggle = (): void => {
+    this.expanded = !this.expanded
+    this.applyExpandedState()
+    this.onToggle?.(this.expanded)
+  }
+
   private applyExpandedState(): void {
     this.root.classList.toggle('is-collapsed', !this.expanded)
     this.toggleButton.setAttribute('aria-expanded', String(this.expanded))
-    this.toggleButton.textContent = this.expanded ? 'Hide Debug HUD' : 'Show Debug HUD'
+    this.toggleButton.textContent = this.expanded ? 'Hide Debug HUD' : 'Debug'
   }
 }

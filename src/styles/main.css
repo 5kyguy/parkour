@@ -39,6 +39,23 @@ body {
   height: 100%;
 }
 
+.route-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 245, 218, 0.2);
+  border-radius: 999px;
+  background: rgba(25, 30, 31, 0.74);
+  padding: 9px 17px;
+  color: #fff4d5;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.035em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .homepage-overlay {
   position: absolute;
   inset: 0;
@@ -207,6 +224,11 @@ body {
 
 .debug-sidebar.is-collapsed {
   padding: 8px;
+}
+
+.debug-sidebar.is-collapsed .debug-sidebar-toggle {
+  writing-mode: vertical-rl;
+  min-height: 68px;
 }
 
 .debug-sidebar.is-collapsed .debug-hud {

@@ -6,6 +6,7 @@ import { InputController } from './input/inputController'
 import { FixedStepper } from './movement/fixedStepper'
 import { PlayerController } from './player/playerController'
 import type { GameSnapshot } from './types'
+import { probeClimbStart, probeVaultAhead } from './world/traversalQueries'
 import { WorldBuilder } from './world/worldBuilder'
 
 type GamePhase = 'intro' | 'playing'
@@ -13,6 +14,7 @@ type GamePhase = 'intro' | 'playing'
 export class GameApp {
   private readonly host: HTMLDivElement
   private readonly viewport: HTMLDivElement
+  private readonly routeHint: HTMLDivElement
   private readonly scene = new Scene()
   private readonly renderer = new WebGLRenderer({ antialias: true })
   private readonly stepper = new FixedStepper()
@@ -37,6 +39,11 @@ export class GameApp {
     this.viewport = document.createElement('div')
     this.viewport.className = 'game-viewport'
     this.host.appendChild(this.viewport)
+
+    this.routeHint = document.createElement('div')
+    this.routeHint.className = 'route-hint'
+    this.routeHint.textContent = 'Follow the stone path · W to run'
+    this.viewport.appendChild(this.routeHint)
 
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.setSize(this.viewport.clientWidth, this.viewport.clientHeight)
@@ -80,7 +87,27 @@ export class GameApp {
     const now = frameAt / 1000
     this.stepper.advance(elapsed, (deltaTime) => this.simulate(deltaTime, now))
     this.player.updateVisual(Math.min(elapsed, 1 / 30), now)
-    this.camera.update(this.player.getSnapshot())
+    const player = this.player.getSnapshot()
+    this.camera.update(player)
+    const nearby = this.worldBuilder.getInteractionProfile(player.position)
+    const forward = player.planarSpeed > 0.5
+      ? player.velocity.clone().setY(0).normalize()
+      : this.camera.getPlanarBasis().forward
+    const footY = player.position.y - PLAYER.HALF_HEIGHT
+    const traversal = this.worldBuilder.getWorldTraversalData()
+    const vault = player.grounded
+      ? probeVaultAhead(player.position, footY, forward.x, forward.z, traversal)
+      : null
+    const climb = player.grounded && !vault
+      ? probeClimbStart(player.position, footY, forward.x, forward.z, traversal)
+      : null
+    this.routeHint.textContent = vault
+      ? 'SPACE · Vault the low wall'
+      : climb
+        ? 'SPACE · Climb the wall'
+        : nearby.archetype === 'vaultBarrier'
+          ? 'Approach the low wall · Space at the edge'
+          : 'Follow the stone path · W to run'
 
     this.renderer.render(this.scene, this.camera.camera)
     this.updateFps()
