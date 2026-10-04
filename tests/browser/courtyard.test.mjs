@@ -13,7 +13,7 @@ function position(text) {
 }
 
 /** Runs against the emitted site, including real rendering and keyboard input. */
-test('courtyard route: spawn, two vaults, and climb to a roof', { timeout: 60000 }, async () => {
+test('courtyard route: vault, climb, then leap the roof gap', { timeout: 60000 }, async () => {
   const server = await preview({ preview: { host: '127.0.0.1', port: 0 } })
   const address = server.httpServer.address()
   assert.ok(address && typeof address !== 'string')
@@ -68,6 +68,20 @@ test('courtyard route: spawn, two vaults, and climb to a roof', { timeout: 60000
     await page.keyboard.up('KeyW')
     await waitForNote('climb_top')
     assert.ok(position(await value('Pos')).y > 7, 'reached rooftop')
+
+    await page.keyboard.down('ShiftLeft')
+    await page.keyboard.down('KeyW')
+    await page.waitForFunction(() => document.querySelector('.route-hint')?.textContent?.includes('SPACE · Leap'), null, { timeout: 5000 })
+    await page.keyboard.press('Space')
+    await waitForNote('leap')
+    await page.waitForFunction(() => {
+      const rows = [...document.querySelectorAll('.debug-hud > div')]
+      const current = label => rows.find(row => row.querySelector('span')?.textContent === label)?.querySelector('strong')?.textContent ?? ''
+      return current('Grounded').toLowerCase() === 'true' && current('Surface').toLowerCase().includes('north arcade roof')
+    }, null, { timeout: 5000 })
+    await page.keyboard.up('KeyW')
+    await page.keyboard.up('ShiftLeft')
+    assert.ok(position(await value('Pos')).z > -95, 'landed across the gap')
     assert.deepEqual(errors, [])
   } finally {
     await browser?.close()

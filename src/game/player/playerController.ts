@@ -159,7 +159,7 @@ export class PlayerController {
     if (wantsJump && this.canJump(now)) {
       const fwd = this.getTraversalForwardXZ(input)
       const vault = this.grounded ? probeVaultAhead(this.root.position, footY, fwd.x, fwd.z, traversal) : null
-      const leapOk = this.grounded && probeRooftopLeap(this.root.position, footY, fwd.x, fwd.z, surfaceBelow)
+      const leapOk = this.grounded && probeRooftopLeap(this.root.position, footY, fwd.x, fwd.z, surfaceBelow, traversal)
       const climb = this.grounded ? probeClimbStart(this.root.position, footY, fwd.x, fwd.z, traversal) : null
 
       if (vault) {
@@ -407,6 +407,8 @@ export class PlayerController {
     const footY = this.getFootY()
     const targetFootY = this.climbRoofY - PLAYER.HALF_HEIGHT - 0.02
     if (footY >= targetFootY - 0.08) {
+      this.root.position.x = this.climbSnapX
+      this.root.position.z = this.climbSnapZ
       this.root.position.y = this.climbRoofY + PLAYER.HALF_HEIGHT - 0.02
       this.velocity.set(0, 0, 0)
       this.grounded = true

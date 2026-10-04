@@ -40,7 +40,8 @@ export type WallRunProbe = {
 
 const VAULT_PROBE_DISTANCE = 1.15
 const CLIMB_MAX_START_HEIGHT = 2.2
-const LEDGE_LEAP_SAMPLE = 0.55
+const CLIMB_LANDING_INSET = PLAYER.WIDTH / 2 + PLAYER.COLLISION_SKIN + 0.1
+const LEAP_APPROACH_DISTANCE = 2.2
 
 export function closestPointOnBoundsXZ(x: number, z: number, bounds: WorldBounds): { cx: number; cz: number } {
   const cx = Math.min(Math.max(x, bounds.minX), bounds.maxX)
@@ -232,8 +233,8 @@ export function probeClimbStart(
         moduleId: mod.id,
         label: mod.label,
         roofY,
-        snapX: cx,
-        snapZ: cz,
+        snapX: Math.max(mod.bounds.minX + CLIMB_LANDING_INSET, Math.min(mod.bounds.maxX - CLIMB_LANDING_INSET, cx)),
+        snapZ: Math.max(mod.bounds.minZ + CLIMB_LANDING_INSET, Math.min(mod.bounds.maxZ - CLIMB_LANDING_INSET, cz)),
       }
     }
   }
@@ -243,10 +244,11 @@ export function probeClimbStart(
 
 export function probeRooftopLeap(
   position: Vector3,
-  _footY: number,
+  footY: number,
   forwardX: number,
   forwardZ: number,
   surface: WorldSurface | null,
+  data: WorldTraversalData,
 ): boolean {
   if (!surface) {
     return false
@@ -264,13 +266,39 @@ export function probeRooftopLeap(
   const fx = forwardX / len
   const fz = forwardZ / len
 
-  const sampleX = position.x + fx * LEDGE_LEAP_SAMPLE
-  const sampleZ = position.z + fz * LEDGE_LEAP_SAMPLE
-  if (isPointInsideBoundsXZ(sampleX, sampleZ, surface.bounds)) {
+  if (!isPointInsideBoundsXZ(position.x, position.z, surface.bounds)) {
     return false
   }
+  const edgeX = fx > 0 ? (surface.bounds.maxX - position.x) / fx
+    : fx < 0 ? (surface.bounds.minX - position.x) / fx : Number.POSITIVE_INFINITY
+  const edgeZ = fz > 0 ? (surface.bounds.maxZ - position.z) / fz
+    : fz < 0 ? (surface.bounds.minZ - position.z) / fz : Number.POSITIVE_INFINITY
+  const toEdge = Math.min(edgeX, edgeZ)
+  if (toEdge < 0 || toEdge > LEAP_APPROACH_DISTANCE) {
+    return false
+  }
+  const takeoffX = position.x + fx * toEdge
+  const takeoffZ = position.z + fz * toEdge
 
-  return true
+  // Require a landing inside another roof rather than leaping toward open ground.
+  const landingInset = PLAYER.WIDTH / 2 + PLAYER.COLLISION_SKIN + 0.08
+  for (const candidate of data.surfaces) {
+    if (candidate.id === surface.id || candidate.layer !== 'rooftop' || Math.abs(candidate.y - footY) > 0.8) {
+      continue
+    }
+    const safeBounds = {
+      minX: candidate.bounds.minX + landingInset,
+      maxX: candidate.bounds.maxX - landingInset,
+      minZ: candidate.bounds.minZ + landingInset,
+      maxZ: candidate.bounds.maxZ - landingInset,
+    }
+    for (let distance = 0.25; distance <= 3; distance += 0.25) {
+      if (isPointInsideBoundsXZ(takeoffX + fx * distance, takeoffZ + fz * distance, safeBounds)) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 export function probeWallRun(

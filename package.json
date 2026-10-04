@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "node --experimental-strip-types --test tests/camera/*.test.ts tests/character/*.test.ts tests/input/*.test.ts tests/movement/*.test.ts",
+    "test": "node --experimental-strip-types --test tests/camera/*.test.ts tests/character/*.test.ts tests/input/*.test.ts tests/movement/*.test.ts tests/world/*.test.ts",
     "test:browser": "yarn build && node --test tests/browser/*.test.mjs",
     "preview": "vite preview"
   },

@@ -93,3 +93,27 @@ test('Space vaults a low solid barrier and lands beyond it with forward momentum
   assert.equal(player.getSnapshot().grounded, true)
   assert.ok(player.getSnapshot().planarSpeed > 2)
 })
+
+test('climbing a wall places the player securely inside its rooftop support', () => {
+  const building: WorldSurface = { ...roof, id: 'house:roof0', y: 7, bounds: { minX: -6, maxX: 6, minZ: 0, maxZ: 10 } }
+  const floor: WorldSurface = { ...roof, id: 'floor', layer: 'ground', routeKind: 'ground', material: 'streetStone', bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 20 } }
+  const module = { id: 'house', label: 'House', archetype: 'residential' as const, material: 'stucco' as const, layer: 'rooftop' as const, routeKind: 'rooftop' as const, tags: ['climbable' as const], bounds: building.bounds }
+  const player = new PlayerController(new Scene(), new Vector3(0, 0.9, -0.65))
+  const args = {
+    ...base,
+    moveZ: 1,
+    traversal: { surfaces: [floor, building], modules: [module] },
+    resolveSurface: (position: Vector3, footY: number) => position.z >= building.bounds.minZ && position.z <= building.bounds.maxZ && footY >= 5.75 ? building : floor,
+  }
+  player.update({ ...args, now: 20, acceptJump: () => {} })
+  let accepted = 0
+  player.update({ ...args, now: 20 + 1 / 60, wantsJump: true, acceptJump: () => { accepted++ } })
+  assert.equal(accepted, 1)
+  assert.equal(player.getSnapshot().state, 'climb')
+  for (let i = 2; i < 180; i++) {
+    player.update({ ...args, now: 20 + i / 60, moveZ: 0, acceptJump: () => {} })
+  }
+  assert.equal(player.getSnapshot().grounded, true)
+  assert.ok(player.getPosition().z > 0.3, `climb exit z=${player.getPosition().z}`)
+  assert.ok(player.getPosition().y > 7.8, `climb exit y=${player.getPosition().y}`)
+})

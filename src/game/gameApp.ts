@@ -6,7 +6,7 @@ import { InputController } from './input/inputController'
 import { FixedStepper } from './movement/fixedStepper'
 import { PlayerController } from './player/playerController'
 import type { GameSnapshot } from './types'
-import { probeClimbStart, probeVaultAhead } from './world/traversalQueries'
+import { probeClimbStart, probeRooftopLeap, probeVaultAhead } from './world/traversalQueries'
 import { WorldBuilder } from './world/worldBuilder'
 
 type GamePhase = 'intro' | 'playing'
@@ -101,13 +101,27 @@ export class GameApp {
     const climb = player.grounded && !vault
       ? probeClimbStart(player.position, footY, forward.x, forward.z, traversal)
       : null
+    const leap = player.grounded && !vault && !climb
+      ? probeRooftopLeap(
+        player.position,
+        footY,
+        forward.x,
+        forward.z,
+        this.worldBuilder.getSurfaceBelow(player.position, footY),
+        traversal,
+      )
+      : false
     this.routeHint.textContent = vault
       ? 'SPACE · Vault the low wall'
       : climb
         ? 'SPACE · Climb the wall'
-        : nearby.archetype === 'vaultBarrier'
-          ? 'Approach the low wall · Space at the edge'
-          : 'Follow the stone path · W to run'
+        : leap
+          ? 'SPACE · Leap to the next roof'
+          : nearby.archetype === 'vaultBarrier'
+            ? 'Approach the low wall · Space at the edge'
+            : player.grounded && footY > 5
+              ? 'Sprint to the roof edge · Space to leap'
+              : 'Follow the stone path · W to run'
 
     this.renderer.render(this.scene, this.camera.camera)
     this.updateFps()
