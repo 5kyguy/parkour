@@ -52,7 +52,7 @@ export class GameApp {
 
     this.worldBuilder.build(this.scene)
     const initialSpawnPoint = this.worldBuilder.getInitialSpawnPoint()
-    this.camera = new FollowCamera(this.viewport.clientWidth / this.viewport.clientHeight)
+    this.camera = new FollowCamera(this.viewport.clientWidth / this.viewport.clientHeight, this.worldBuilder.getCameraObstacles())
     this.player = new PlayerController(this.scene, initialSpawnPoint)
     this.debugHud = new DebugHud(this.host, {
       onToggle: (expanded) => {
@@ -88,7 +88,7 @@ export class GameApp {
     this.stepper.advance(elapsed, (deltaTime) => this.simulate(deltaTime, now))
     this.player.updateVisual(Math.min(elapsed, 1 / 30), now)
     const player = this.player.getSnapshot()
-    this.camera.update(player)
+    this.camera.update(player, Math.min(elapsed, 1 / 15))
     const nearby = this.worldBuilder.getInteractionProfile(player.position)
     const forward = player.planarSpeed > 0.5
       ? player.velocity.clone().setY(0).normalize()

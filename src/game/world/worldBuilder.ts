@@ -140,6 +140,11 @@ export class WorldBuilder {
     }
   }
 
+  /** Collision volumes shared with the follow camera for line-of-sight checks. */
+  public getCameraObstacles(): readonly CollisionBox[] {
+    return this.collisionBoxes
+  }
+
   /**
    * Keeps the player capsule out of solid building/prop volumes (XZ separation).
    * Mutates position and velocity when a wall is hit.

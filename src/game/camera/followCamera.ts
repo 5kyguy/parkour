@@ -1,6 +1,8 @@
 import { PerspectiveCamera, Vector3 } from 'three'
-import { CAMERA } from '../constants'
+import { CAMERA } from '../constants.ts'
 import type { PlayerSnapshot } from '../types'
+import type { CollisionBox } from '../world/worldTypes'
+import { firstObstructionFraction } from './obstruction.ts'
 
 export class FollowCamera {
   public readonly camera: PerspectiveCamera
@@ -14,8 +16,11 @@ export class FollowCamera {
   private pitch = 0.28
   private shakeRemaining = 0
   private shakeAmount = 0
+  private initialized = false
+  private readonly obstacles: readonly CollisionBox[]
 
-  constructor(aspect: number) {
+  constructor(aspect: number, obstacles: readonly CollisionBox[] = []) {
+    this.obstacles = obstacles
     this.camera = new PerspectiveCamera(CAMERA.FOV, aspect, 0.1, 1000)
     this.camera.position.set(0, 10, -14)
   }
@@ -39,7 +44,7 @@ export class FollowCamera {
     }
   }
 
-  public update(player: PlayerSnapshot): void {
+  public update(player: PlayerSnapshot, deltaTime = 1 / 60): void {
     this.focusTarget.copy(player.position)
     this.focusTarget.y += 1.5
     this.target.copy(this.focusTarget)
@@ -69,7 +74,18 @@ export class FollowCamera {
       this.shakeRemaining = Math.max(0, this.shakeRemaining - 1 / 60)
     }
 
-    this.camera.position.lerp(this.desired, CAMERA.FOLLOW_LERP)
+    const clearDistance = firstObstructionFraction(this.focusTarget, this.desired, this.obstacles)
+    this.desired.lerpVectors(this.focusTarget, this.desired, clearDistance)
+    if (!this.initialized) {
+      this.camera.position.copy(this.desired)
+      this.initialized = true
+    } else {
+      const follow = 1 - Math.exp(Math.log(1 - CAMERA.FOLLOW_LERP) * 60 * Math.min(deltaTime, 1 / 15))
+      this.camera.position.lerp(this.desired, follow)
+      // Recover distance smoothly, but move inward immediately when a wall enters the sightline.
+      const currentClearance = firstObstructionFraction(this.focusTarget, this.camera.position, this.obstacles)
+      this.camera.position.lerpVectors(this.focusTarget, this.camera.position, currentClearance)
+    }
     this.camera.lookAt(this.focusTarget)
   }
 
